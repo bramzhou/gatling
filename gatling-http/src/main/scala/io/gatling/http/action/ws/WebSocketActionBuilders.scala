@@ -16,32 +16,46 @@
  */
 package io.gatling.http.action.ws
 
+import scala.concurrent.duration.FiniteDuration
+
 import akka.actor.ActorDSL.actor
 import akka.actor.ActorRef
 import io.gatling.core.config.Protocols
 import io.gatling.core.session.Expression
 import io.gatling.http.action.HttpActionBuilder
+import io.gatling.http.check.ws.WebSocketCheck
 import io.gatling.http.request.builder.OpenWebSocketRequestBuilder
 
 class OpenWebSocketActionBuilder(requestName: Expression[String], wsName: String, requestBuilder: OpenWebSocketRequestBuilder) extends HttpActionBuilder {
 
   def build(next: ActorRef, protocols: Protocols) = {
     val request = requestBuilder.build(httpProtocol(protocols))
-    actor(new OpenWebSocketAction(requestName, wsName, request, next, httpProtocol(protocols)))
+    val protocol = httpProtocol(protocols)
+    actor(new OpenWebSocketAction(requestName, wsName, request, next, protocol))
   }
 }
 
 class SendWebSocketTextMessageActionBuilder(requestName: Expression[String], wsName: String, message: Expression[String]) extends HttpActionBuilder {
 
-  def build(next: ActorRef, protocols: Protocols) = actor(new SendWebSocketTextMessageAction(requestName, wsName, message, next, httpProtocol(protocols)))
+  def build(next: ActorRef, protocols: Protocols) = actor(new SendWebSocketTextMessageAction(requestName, wsName, message, next))
 }
 
 class SendWebSocketBinaryMessageActionBuilder(requestName: Expression[String], wsName: String, message: Expression[Array[Byte]]) extends HttpActionBuilder {
 
-  def build(next: ActorRef, protocols: Protocols) = actor(new SendWebSocketBinaryMessageAction(requestName, wsName, message, next, httpProtocol(protocols)))
+  def build(next: ActorRef, protocols: Protocols) = actor(new SendWebSocketBinaryMessageAction(requestName, wsName, message, next))
+}
+
+class ListenWebSocketActionBuilder(requestName: Expression[String], wsName: String, check: WebSocketCheck, timeout: Expression[FiniteDuration]) extends HttpActionBuilder {
+
+  def build(next: ActorRef, protocols: Protocols) = actor(new ListenWebSocketAction(requestName, wsName, check, timeout, next))
+}
+
+class ReconciliateWebSocketActionBuilder(wsName: String) extends HttpActionBuilder {
+
+  def build(next: ActorRef, protocols: Protocols) = actor(new ReconciliateWebSocketAction(wsName, next))
 }
 
 class CloseWebSocketActionBuilder(requestName: Expression[String], wsName: String) extends HttpActionBuilder {
 
-  def build(next: ActorRef, protocols: Protocols) = actor(new CloseWebSocketAction(requestName, wsName, next, httpProtocol(protocols)))
+  def build(next: ActorRef, protocols: Protocols) = actor(new CloseWebSocketAction(requestName, wsName, next))
 }

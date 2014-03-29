@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * 		http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,14 +15,18 @@
  */
 package io.gatling.http.action.ws
 
+import scala.concurrent.duration.FiniteDuration
+
 import akka.actor.ActorRef
 import io.gatling.core.session.{ Expression, Session }
 import io.gatling.http.action.RequestAction
+import io.gatling.http.check.ws.WebSocketCheck
 
-class CloseWebSocketAction(val requestName: Expression[String], wsName: String, val next: ActorRef) extends RequestAction {
+class ListenWebSocketAction(val requestName: Expression[String], wsName: String, checks: WebSocketCheck, timeout: Expression[FiniteDuration], val next: ActorRef) extends RequestAction {
 
   def sendRequest(requestName: String, session: Session) =
     for {
       wsActor <- session(wsName).validate[ActorRef]
-    } yield wsActor ! Close(requestName, next, session)
+      resolvedTimeout <- timeout(session)
+    } yield wsActor ! Listen(requestName, checks, resolvedTimeout, next, session)
 }

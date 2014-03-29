@@ -16,21 +16,30 @@
  */
 package io.gatling.http.action.ws
 
+import scala.concurrent.duration.FiniteDuration
+
 import com.ning.http.client.websocket.WebSocket
 
 import akka.actor.ActorRef
-import io.gatling.core.session.Session
+import io.gatling.http.check.ws.WebSocketCheck
 import io.gatling.http.ahc.WebSocketTx
+import io.gatling.core.session.Session
 
-sealed trait WebSocketEvents
-case class OnOpen(tx: WebSocketTx, webSocket: WebSocket, started: Long, ended: Long) extends WebSocketEvents
-case class OnFailedOpen(tx: WebSocketTx, message: String, started: Long, ended: Long) extends WebSocketEvents
-case class OnMessage(message: String) extends WebSocketEvents
-case object OnClose extends WebSocketEvents
-case object OnUnexpectedClose extends WebSocketEvents
-case class OnError(t: Throwable) extends WebSocketEvents
+sealed trait WebSocketEvent
+case class OnOpen(tx: WebSocketTx, webSocket: WebSocket, started: Long, ended: Long) extends WebSocketEvent
+case class OnFailedOpen(tx: WebSocketTx, message: String, started: Long, ended: Long) extends WebSocketEvent
+case class OnMessage(message: String) extends WebSocketEvent
+case object OnClose extends WebSocketEvent
+case object OnUnexpectedClose extends WebSocketEvent
+case class OnError(t: Throwable) extends WebSocketEvent
+case class ListenTimeout(requestName: String, started: Long) extends WebSocketEvent
 
-sealed trait WebSocketMessage extends WebSocketEvents
-case class SendTextMessage(requestName: String, message: String, next: ActorRef, session: Session) extends WebSocketMessage
-case class SendBinaryMessage(requestName: String, message: Array[Byte], next: ActorRef, session: Session) extends WebSocketMessage
-case class Close(requestName: String, next: ActorRef, session: Session) extends WebSocketMessage
+sealed trait WebSocketAction extends WebSocketEvent {
+  def requestName: String
+  def next: ActorRef
+  def session: Session
+}
+case class SendMessage(requestName: String, message: Either[String, Array[Byte]], next: ActorRef, session: Session) extends WebSocketAction
+case class Listen(requestName: String, check: WebSocketCheck, timeout: FiniteDuration, next: ActorRef, session: Session) extends WebSocketAction
+case class Close(requestName: String, next: ActorRef, session: Session) extends WebSocketAction
+case class Reconciliate(requestName: String, next: ActorRef, session: Session) extends WebSocketAction

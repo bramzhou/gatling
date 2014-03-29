@@ -20,7 +20,6 @@ import scala.collection.mutable
 
 import com.ning.http.client.websocket.WebSocket
 
-import akka.actor.ActorRef
 import io.gatling.core.akka.BaseActor
 import io.gatling.core.result.message.{ KO, OK, Status }
 import io.gatling.core.result.writer.DataWriterClient
@@ -28,7 +27,37 @@ import io.gatling.core.session.Session
 import io.gatling.core.util.TimeHelper.nowMillis
 import io.gatling.http.ahc.{ HttpEngine, WebSocketTx }
 
+object WebSocketActor {
+
+  val MarkAsFailed: Session => Session = _.markAsFailed
+}
+
 class WebSocketActor(wsName: String) extends BaseActor with DataWriterClient {
+
+  def receive = opening(mutable.Queue.empty)
+
+  def opening(pendingActions: mutable.Queue[WebSocketAction]): Receive = {
+    case OnOpen(tx, webSocket, started, ended) =>
+      import tx._
+      logRequest(session, requestName, OK, started, ended)
+      next ! session.set(wsName, self)
+      context.become(openState(webSocket, tx))
+
+      // send all pending actions
+      pendingActions.foreach {
+        self ! _
+      }
+
+    case OnFailedOpen(tx, message, started, ended) =>
+      import tx._
+      logger.info(s"Websocket '$wsName' failed to open: $message")
+      logRequest(session, requestName, KO, started, ended, Some(message))
+      next ! session.markAsFailed
+      context.stop(self)
+
+    case action: WebSocketAction =>
+      pendingActions += action
+  }
 
   private def logRequest(session: Session, requestName: String, status: Status, started: Long, ended: Long, errorMessage: Option[String] = None) {
     writeRequestData(
@@ -42,119 +71,139 @@ class WebSocketActor(wsName: String) extends BaseActor with DataWriterClient {
       errorMessage)
   }
 
-  def sendTextMessage(webSocket: WebSocket, requestName: String, message: String, session: Session) {
-    val started = nowMillis
-    webSocket.sendTextMessage(message)
-    logRequest(session, requestName, OK, started, nowMillis)
-  }
+  def openState(webSocket: WebSocket, tx: WebSocketTx): Receive = {
 
-  def sendBinaryMessage(webSocket: WebSocket, requestName: String, message: Array[Byte], session: Session) {
-    val started = nowMillis
-    webSocket.sendMessage(message)
-    logRequest(session, requestName, OK, started, nowMillis)
-  }
+      def handleCrash(message: String) {
+        if (tx.check.isDefined) {
+          // FIXME store somewhere
+          val started = nowMillis
+          logRequest(tx.session, tx.requestName, KO, started, nowMillis, Some(message))
+        }
 
-  def webSocketOpenState(webSocket: WebSocket, tx: WebSocketTx): Receive = {
-    case OnMessage(message) =>
-      // TODO deal with messages
-      logger.debug(s"Received message on websocket '$wsName':$message")
+        context.become(pendingCrashState(message))
+      }
 
-    case SendTextMessage(requestName, message, next, session) =>
-      sendTextMessage(webSocket, requestName, message, session)
-      next ! session
+      // FIXME started
+      def listenFail(message: String, started: Long) {
+        tx.check match {
+          case Some(check) =>
+            logRequest(tx.session, tx.requestName, KO, started, nowMillis, Some(message))
+            val newTx = tx.copy(check = None, updates = WebSocketActor.MarkAsFailed :: tx.updates)
+            context.become(openState(webSocket, newTx))
 
-    case SendBinaryMessage(requestName, message, next, session) =>
-      sendBinaryMessage(webSocket, requestName, message, session)
-      next ! session
-
-    case Close(requestName, next, session) =>
-      val started = nowMillis
-      webSocket.close()
-      logRequest(session, requestName, OK, started, nowMillis)
-      next ! session.remove(wsName)
-      context.become(closingState)
-
-    case OnUnexpectedClose | OnClose =>
-      if (tx.protocol.wsPart.reconnect)
-        if (tx.protocol.wsPart.maxReconnects.map(_ > tx.reconnectCount).getOrElse(true))
-          context.become(disconnectedState(mutable.Queue.empty[WebSocketMessage], tx))
-        else
-          context.become(pendingErrorMessageState(s"Websocket '$wsName' was unexpectedly closed and max reconnect reached"))
-
-      else
-        context.become(pendingErrorMessageState(s"Websocket '$wsName' was unexpectedly closed"))
-
-    case OnError(t) =>
-      context.become(pendingErrorMessageState(s"Websocket '$wsName' gave an error: '${t.getMessage}'"))
-  }
-
-  def closingState: Receive = {
-    case OnClose => context.stop(self)
-  }
-
-  def disconnectedState(pendingSendMessages: mutable.Queue[WebSocketMessage], tx: WebSocketTx): Receive = {
-
-    case message: WebSocketMessage =>
-      // reconnect on first client message tentative
-      HttpEngine.instance.startWebSocketTransaction(tx.copy(reconnectCount = tx.reconnectCount + 1), self)
-
-      context.become(reconnectingState(pendingSendMessages += message))
-  }
-
-  def reconnectingState(pendingSendMessages: mutable.Queue[WebSocketMessage]): Receive = {
-
-    case message: WebSocketMessage =>
-      pendingSendMessages += message
-
-    case OnOpen(tx, webSocket, started, ended) =>
-      // send all pending messages
-      pendingSendMessages.foreach { self ! _ }
-
-      context.become(webSocketOpenState(webSocket, tx))
-
-    case OnFailedOpen(tx, message, _, _) =>
-
-      val error = s"Websocket '$wsName' failed to reconnect: $message"
-
-      // send all pending messages
-      pendingSendMessages.foreach { self ! _ }
-
-      context.become(pendingErrorMessageState(error))
-  }
-
-  def pendingErrorMessageState(error: String): Receive = {
-
-      def flushPendingError(requestName: String, next: ActorRef, session: Session) {
-        val now = nowMillis
-        logRequest(session, requestName, KO, now, now, Some(error))
-        next ! session.markAsFailed.remove(wsName)
-        context.stop(self)
+          case _ => // ignore, this timeout is outdated
+        }
       }
 
     {
-      case SendTextMessage(requestName, _, next, session) =>
-        flushPendingError(requestName, next, session)
+      case SendMessage(requestName, message, next, session) =>
+        val started = nowMillis
+        message match {
+          case Left(text)   => webSocket.sendTextMessage(text)
+          case Right(bytes) => webSocket.sendMessage(bytes)
+        }
+        logRequest(session, requestName, OK, started, nowMillis)
 
-      case SendBinaryMessage(requestName, _, next, session) =>
-        flushPendingError(requestName, next, session)
+        next ! session
+
+      case Listen(requestName, check, timeout, next, session) =>
+
+        val newTx = tx.copy(requestName = requestName, check = Some(check))
+
+        context.become(openState(webSocket, newTx))
+
+        scheduler.scheduleOnce(timeout) {
+          self ! ListenTimeout(requestName, nowMillis)
+        }
+
+        next ! session
+
+      case ListenTimeout(requestName, started) =>
+        if (tx.requestName == requestName)
+          listenFail("Timeout", started)
+
+      case OnMessage(message) =>
+        // TODO
+        logger.debug(s"Received message on websocket '$wsName':$message")
+
+      case Reconciliate(requestName, next, session) =>
+        val newSession = tx.updates.reduceLeft(_ andThen _)(session)
+        next ! newSession
+        val newTx = tx.copy(updates = Nil)
+        context.become(openState(webSocket, newTx))
 
       case Close(requestName, next, session) =>
-        flushPendingError(requestName, next, session)
+        val started = nowMillis
+        webSocket.close()
+        listenFail("Closing before succeeding", started)
+        logRequest(session, requestName, OK, started, nowMillis)
+        next ! session.remove(wsName)
+        context.become(closingState)
+
+      case OnUnexpectedClose | OnClose =>
+        if (tx.protocol.wsPart.reconnect)
+          if (tx.protocol.wsPart.maxReconnects.map(_ > tx.reconnectCount).getOrElse(true))
+            disconnectedState(mutable.Queue.empty, tx)
+          else
+            handleCrash(s"Websocket '$wsName' was unexpectedly closed and max reconnect reached")
+
+        else
+          handleCrash(s"Websocket '$wsName' was unexpectedly closed")
+
+      case OnError(t) =>
+        if (webSocket.isOpen)
+          webSocket.close()
+        handleCrash(s"Websocket '$wsName' gave an error: '${t.getMessage}'")
     }
   }
 
-  def receive = {
-    case OnOpen(tx, webSocket, started, ended) =>
-      import tx._
-      logRequest(session, requestName, OK, started, ended)
-      next ! session.set(wsName, self)
-      context.become(webSocketOpenState(webSocket, tx))
+  val closingState: Receive = {
+    case OnClose => context.stop(self)
+    case _       => // discard
+  }
 
-    case OnFailedOpen(tx, message, started, ended) =>
-      import tx._
-      logger.warn(s"Websocket '$wsName' failed to open: $message")
-      logRequest(session, requestName, KO, started, ended, Some(message))
-      next ! session.markAsFailed
+  def disconnectedState(pendingActions: mutable.Queue[WebSocketAction], tx: WebSocketTx): Receive = {
+
+    case action: WebSocketAction =>
+      // reconnect on first client message tentative
+      HttpEngine.instance.startWebSocketTransaction(tx.copy(reconnectCount = tx.reconnectCount + 1), self)
+
+      context.become(reconnectingState(pendingActions += action))
+
+    case _ => // discard
+  }
+
+  // FIXME don't lose checks
+  def reconnectingState(pendingActions: mutable.Queue[WebSocketAction]): Receive = {
+
+    case OnOpen(tx, webSocket, started, ended) =>
+      // send all pending events
+      pendingActions.foreach(self ! _)
+
+      context.become(openState(webSocket, tx))
+
+    case OnFailedOpen(tx, message, _, _) =>
+
+      // send all pending events
+      pendingActions.foreach(self ! _)
+
+      context.become(pendingCrashState(s"Websocket '$wsName' failed to reconnect: $message"))
+
+    case action: WebSocketAction =>
+      pendingActions += action
+
+    case _ => // discard
+  }
+
+  def pendingCrashState(error: String): Receive = {
+
+    case action: WebSocketAction =>
+      import action._
+      val now = nowMillis
+      logRequest(session, requestName, KO, now, now, Some(error))
+      next ! session.markAsFailed.remove(wsName)
       context.stop(self)
+
+    case _ => // discard
   }
 }

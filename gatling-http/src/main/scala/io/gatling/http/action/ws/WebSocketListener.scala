@@ -24,10 +24,11 @@ import io.gatling.http.ahc.WebSocketTx
 
 class WebSocketListener(tx: WebSocketTx, wsActor: ActorRef, started: Long)
     extends AHCWebSocketTextListener with WebSocketCloseCodeReasonListener {
-  var opened = false
+
+  private var state: WebSocketListenerState = Opening
 
   def onOpen(webSocket: WebSocket) {
-    opened = true
+    state = Open
     wsActor ! OnOpen(tx, webSocket, started, nowMillis)
   }
 
@@ -40,17 +41,33 @@ class WebSocketListener(tx: WebSocketTx, wsActor: ActorRef, started: Long)
   def onClose(webSocket: WebSocket) {}
 
   def onClose(webSocket: WebSocket, statusCode: Int, reason: String) {
-    if (opened) {
-      opened = false
-      if (statusCode == 1006) {
-        wsActor ! OnUnexpectedClose
-      } else
-        wsActor ! OnClose
+    state match {
+      case Open =>
+        state = Closed
+        val closeMessage = if (statusCode == 1006) OnUnexpectedClose else OnClose
+        wsActor ! closeMessage
+
+      case _ => // discard
     }
   }
 
   def onError(t: Throwable) {
-    if (opened)
-      wsActor ! OnError(t)
+    state match {
+      case Opening =>
+        wsActor ! OnFailedOpen(tx, t.getMessage, started, nowMillis)
+
+      case Open =>
+        wsActor ! OnError(t)
+
+      case Closed => // discard
+    }
   }
 }
+
+private sealed trait WebSocketListenerState
+
+private case object Opening extends WebSocketListenerState
+
+private case object Open extends WebSocketListenerState
+
+private case object Closed extends WebSocketListenerState

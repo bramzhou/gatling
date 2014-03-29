@@ -39,6 +39,7 @@ import io.gatling.http.config.HttpProtocol
 import io.gatling.http.request.{ ExtraInfoExtractor, HttpRequest }
 import io.gatling.http.response.ResponseBuilderFactory
 import io.gatling.http.util.SSLHelper.{ RichAsyncHttpClientConfigBuilder, newKeyManagers, newTrustManagers }
+import io.gatling.http.check.ws.WebSocketCheck
 
 case class HttpTx(session: Session,
                   request: Request,
@@ -61,7 +62,9 @@ case class WebSocketTx(session: Session,
                        requestName: String,
                        protocol: HttpProtocol,
                        next: ActorRef,
-                       reconnectCount: Int = 0)
+                       reconnectCount: Int = 0,
+                       check: Option[WebSocketCheck] = None,
+                       updates: List[Session => Session] = Nil)
 
 object HttpEngine extends AkkaDefaults with StrictLogging {
 

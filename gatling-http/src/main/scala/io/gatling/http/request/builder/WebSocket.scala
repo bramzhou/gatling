@@ -16,9 +16,11 @@
  */
 package io.gatling.http.request.builder
 
-import io.gatling.core.session.{ Expression, SessionPrivateAttributes }
-import io.gatling.http.action.ws.{ CloseWebSocketActionBuilder, SendWebSocketBinaryMessageActionBuilder, SendWebSocketTextMessageActionBuilder }
+import scala.concurrent.duration.FiniteDuration
+import io.gatling.core.session.{ Expression, ExpressionWrapper, SessionPrivateAttributes }
+import io.gatling.http.action.ws._
 import io.gatling.http.request.builder.WebSocket.defaultWebSocketName
+import io.gatling.http.check.ws.WebSocketCheck
 
 object WebSocket {
 
@@ -34,13 +36,13 @@ class WebSocket(requestName: Expression[String]) {
    * Opens a web socket and stores it in the session.
    *
    * @param url The socket URL
-   * @param wsName The name of the session attribute used to store the socket
+   * @param wsName The name of the session attribute used to store the websocket
    */
   def open(url: Expression[String], wsName: String = defaultWebSocketName) =
     new OpenWebSocketRequestBuilder(CommonAttributes(requestName, "GET", Left(url)), wsName)
 
   /**
-   * Sends a binary message on the given socket.
+   * Sends a binary message on the given websocket.
    *
    * @param message The message
    * @param wsName The name of the session attribute storing the socket
@@ -49,7 +51,7 @@ class WebSocket(requestName: Expression[String]) {
     new SendWebSocketBinaryMessageActionBuilder(requestName, wsName, message)
 
   /**
-   * Sends a text message on the given socket.
+   * Sends a text message on the given websocket.
    *
    * @param message The message
    * @param wsName The name of the session attribute storing the socket
@@ -58,9 +60,37 @@ class WebSocket(requestName: Expression[String]) {
     new SendWebSocketTextMessageActionBuilder(requestName, wsName, message)
 
   /**
-   * Closes a web socket.
+   * Listens to incoming messages on the given websocket.
    *
-   * @param wsName The name of the session attribute storing the socket
+   * @param timeout The maximum duration to listen
+   * @param wsName The name of the session attribute storing the websocket
+   */
+  def listen(timeout: FiniteDuration, wsName: String = defaultWebSocketName): WebSocketListenBuilder = listen(timeout.expression, wsName)
+
+  /**
+   * Listens to incoming messages on the given websocket.
+   *
+   * @param timeout The maximum duration to listen
+   * @param wsName The name of the session attribute storing the websocket
+   */
+  def listen(timeout: Expression[FiniteDuration], wsName: String): WebSocketListenBuilder = new WebSocketListenBuilder(requestName, timeout: Expression[FiniteDuration], wsName: String)
+
+  class WebSocketListenBuilder(requestName: Expression[String], timeout: Expression[FiniteDuration], wsName: String) {
+
+    /**
+     * Defines the condition for stopping listening to the websocket.
+     * @param check The condition
+     */
+    def until(check: WebSocketCheck) = new ListenWebSocketActionBuilder(requestName: Expression[String], wsName: String, check, timeout)
+  }
+
+  def reconciliate(wsName: String = defaultWebSocketName) =
+    new ReconciliateWebSocketActionBuilder(wsName)
+
+  /**
+   * Closes a websocket.
+   *
+   * @param wsName The name of the session attribute storing the websocket
    */
   def close(wsName: String = defaultWebSocketName) =
     new CloseWebSocketActionBuilder(requestName, wsName)
