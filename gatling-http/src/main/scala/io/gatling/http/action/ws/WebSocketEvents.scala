@@ -26,20 +26,22 @@ import io.gatling.http.ahc.WebSocketTx
 import io.gatling.core.session.Session
 
 sealed trait WebSocketEvent
-case class OnOpen(tx: WebSocketTx, webSocket: WebSocket, started: Long, ended: Long) extends WebSocketEvent
-case class OnFailedOpen(tx: WebSocketTx, message: String, started: Long, ended: Long) extends WebSocketEvent
-case class OnMessage(message: String) extends WebSocketEvent
-case object OnClose extends WebSocketEvent
-case object OnUnexpectedClose extends WebSocketEvent
-case class OnError(t: Throwable) extends WebSocketEvent
-case class ListenTimeout(requestName: String, started: Long) extends WebSocketEvent
+case class OnOpen(tx: WebSocketTx, webSocket: WebSocket, time: Long) extends WebSocketEvent
+case class OnFailedOpen(tx: WebSocketTx, message: String, time: Long) extends WebSocketEvent
+case class OnMessage(message: String, time: Long) extends WebSocketEvent
+case class OnClose(status: Int, reason: String, time: Long) extends WebSocketEvent
+case class ListenTimeout(requestName: String) extends WebSocketEvent
 
 sealed trait WebSocketAction extends WebSocketEvent {
   def requestName: String
   def next: ActorRef
   def session: Session
 }
-case class SendMessage(requestName: String, message: Either[String, Array[Byte]], next: ActorRef, session: Session) extends WebSocketAction
+case class SendMessage(requestName: String, message: WebSocketMessage, next: ActorRef, session: Session) extends WebSocketAction
 case class Listen(requestName: String, check: WebSocketCheck, timeout: FiniteDuration, next: ActorRef, session: Session) extends WebSocketAction
 case class Close(requestName: String, next: ActorRef, session: Session) extends WebSocketAction
 case class Reconciliate(requestName: String, next: ActorRef, session: Session) extends WebSocketAction
+
+sealed trait WebSocketMessage
+case class BinaryMessage(message: Array[Byte]) extends WebSocketMessage
+case class TextMessage(message: String) extends WebSocketMessage

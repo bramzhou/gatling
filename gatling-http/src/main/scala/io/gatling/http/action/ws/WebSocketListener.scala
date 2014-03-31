@@ -1,6 +1,5 @@
 /**
  * Copyright 2011-2014 eBusiness Information, Groupe Excilys (www.excilys.com)
- * Copyright 2012 Gilt Groupe, Inc. (www.gilt.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,19 +20,20 @@ import com.ning.http.client.websocket.{ WebSocket, WebSocketCloseCodeReasonListe
 import akka.actor.ActorRef
 import io.gatling.core.util.TimeHelper.nowMillis
 import io.gatling.http.ahc.WebSocketTx
+import com.typesafe.scalalogging.slf4j.StrictLogging
 
-class WebSocketListener(tx: WebSocketTx, wsActor: ActorRef, started: Long)
-    extends AHCWebSocketTextListener with WebSocketCloseCodeReasonListener {
+class WebSocketListener(tx: WebSocketTx, wsActor: ActorRef)
+    extends AHCWebSocketTextListener with WebSocketCloseCodeReasonListener with StrictLogging {
 
   private var state: WebSocketListenerState = Opening
 
   def onOpen(webSocket: WebSocket) {
     state = Open
-    wsActor ! OnOpen(tx, webSocket, started, nowMillis)
+    wsActor ! OnOpen(tx, webSocket, nowMillis)
   }
 
   def onMessage(message: String) {
-    wsActor ! OnMessage(message)
+    wsActor ! OnMessage(message, nowMillis)
   }
 
   def onFragment(fragment: String, last: Boolean) {}
@@ -44,8 +44,7 @@ class WebSocketListener(tx: WebSocketTx, wsActor: ActorRef, started: Long)
     state match {
       case Open =>
         state = Closed
-        val closeMessage = if (statusCode == 1006) OnUnexpectedClose else OnClose
-        wsActor ! closeMessage
+        wsActor ! OnClose(statusCode, reason, nowMillis)
 
       case _ => // discard
     }
@@ -54,10 +53,10 @@ class WebSocketListener(tx: WebSocketTx, wsActor: ActorRef, started: Long)
   def onError(t: Throwable) {
     state match {
       case Opening =>
-        wsActor ! OnFailedOpen(tx, t.getMessage, started, nowMillis)
+        wsActor ! OnFailedOpen(tx, t.getMessage, nowMillis)
 
       case Open =>
-        wsActor ! OnError(t)
+        logger.error(s"Websocket gave an unexpected error '${t.getMessage}', please report to Gatling project", t)
 
       case Closed => // discard
     }

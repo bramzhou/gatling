@@ -44,6 +44,10 @@ case class SessionAttribute(session: Session, key: String) {
   }
 }
 
+object Session {
+  val MarkAsFailedUpdate: Session => Session = _.markAsFailed
+}
+
 /**
  * Session class representing the session passing through a scenario for a given user
  *
@@ -129,4 +133,6 @@ case class Session(
 
   def loopCounterValue(counterName: String) = attributes(counterName).asInstanceOf[Int]
   def loopTimestampValue(counterName: String) = attributes(timestampName(counterName)).asInstanceOf[Long]
+
+  def update(updates: Iterable[Session => Session]): Session = updates.reduceLeft(_ andThen _)(this)
 }

@@ -35,14 +35,9 @@ class OpenWebSocketActionBuilder(requestName: Expression[String], wsName: String
   }
 }
 
-class SendWebSocketTextMessageActionBuilder(requestName: Expression[String], wsName: String, message: Expression[String]) extends HttpActionBuilder {
+class SendWebSocketMessageActionBuilder(requestName: Expression[String], wsName: String, message: Expression[WebSocketMessage]) extends HttpActionBuilder {
 
-  def build(next: ActorRef, protocols: Protocols) = actor(new SendWebSocketTextMessageAction(requestName, wsName, message, next))
-}
-
-class SendWebSocketBinaryMessageActionBuilder(requestName: Expression[String], wsName: String, message: Expression[Array[Byte]]) extends HttpActionBuilder {
-
-  def build(next: ActorRef, protocols: Protocols) = actor(new SendWebSocketBinaryMessageAction(requestName, wsName, message, next))
+  def build(next: ActorRef, protocols: Protocols) = actor(new SendWebSocketMessageAction(requestName, wsName, message, next))
 }
 
 class ListenWebSocketActionBuilder(requestName: Expression[String], wsName: String, check: WebSocketCheck, timeout: Expression[FiniteDuration]) extends HttpActionBuilder {

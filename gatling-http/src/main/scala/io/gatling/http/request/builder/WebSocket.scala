@@ -44,20 +44,24 @@ class WebSocket(requestName: Expression[String]) {
   /**
    * Sends a binary message on the given websocket.
    *
-   * @param message The message
+   * @param bytes The message
    * @param wsName The name of the session attribute storing the socket
    */
-  def sendBinaryMessage(message: Expression[Array[Byte]], wsName: String = defaultWebSocketName) =
-    new SendWebSocketBinaryMessageActionBuilder(requestName, wsName, message)
+  def sendBinaryMessage(bytes: Expression[Array[Byte]], wsName: String = defaultWebSocketName) = {
+    val message = bytes.map(BinaryMessage)
+    new SendWebSocketMessageActionBuilder(requestName, wsName, message)
+  }
 
   /**
    * Sends a text message on the given websocket.
    *
-   * @param message The message
+   * @param text The message
    * @param wsName The name of the session attribute storing the socket
    */
-  def sendTextMessage(message: Expression[String], wsName: String = defaultWebSocketName) =
-    new SendWebSocketTextMessageActionBuilder(requestName, wsName, message)
+  def sendTextMessage(text: Expression[String], wsName: String = defaultWebSocketName) = {
+    val message = text.map(TextMessage)
+    new SendWebSocketMessageActionBuilder(requestName, wsName, message)
+  }
 
   /**
    * Listens to incoming messages on the given websocket.

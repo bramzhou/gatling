@@ -19,11 +19,11 @@ import akka.actor.ActorRef
 import io.gatling.core.session.{ Expression, Session }
 import io.gatling.http.action.RequestAction
 
-class SendWebSocketTextMessageAction(val requestName: Expression[String], wsName: String, message: Expression[String], val next: ActorRef) extends RequestAction {
+class SendWebSocketMessageAction(val requestName: Expression[String], wsName: String, message: Expression[WebSocketMessage], val next: ActorRef) extends RequestAction {
 
   def sendRequest(requestName: String, session: Session) =
     for {
       wsActor <- session(wsName).validate[ActorRef]
       resolvedMessage <- message(session)
-    } yield wsActor ! SendMessage(requestName, Left(resolvedMessage), next, session)
+    } yield wsActor ! SendMessage(requestName, resolvedMessage, next, session)
 }

@@ -22,6 +22,7 @@ import akka.actor.ActorDSL.actor
 import akka.actor.ActorRef
 import io.gatling.core.action.Interruptable
 import io.gatling.core.session.{ Expression, Session }
+import io.gatling.core.util.TimeHelper.nowMillis
 import io.gatling.http.ahc.{ HttpEngine, WebSocketTx }
 import io.gatling.http.config.HttpProtocol
 
@@ -45,6 +46,6 @@ class OpenWebSocketAction(
     for {
       requestName <- requestName(session)
       request <- request(session)
-    } yield open(WebSocketTx(session, request, requestName, protocol, next))
+    } yield open(WebSocketTx(session, request, requestName, protocol, next, nowMillis))
   }
 }
