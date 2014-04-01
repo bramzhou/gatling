@@ -88,6 +88,17 @@ class WebSocketActor(wsName: String) extends BaseActor with DataWriterClient {
         next ! newSession
       }
 
+    def failCurrentCheck(message: String): List[Session => Session] = {
+      tx.check match {
+        case None =>
+          tx.updates
+
+        case _ =>
+          logRequest(tx.session, tx.requestName, KO, tx.start, nowMillis, Some(message))
+          Session.MarkAsFailedUpdate :: tx.updates
+      }
+    }
+
     {
       case SendMessage(requestName, message, next, session) =>
 
@@ -104,15 +115,7 @@ class WebSocketActor(wsName: String) extends BaseActor with DataWriterClient {
 
       case Listen(requestName, check, timeout, next, session) =>
 
-        val updates = tx.check match {
-          case None =>
-            tx.updates
-
-          case _ =>
-            // fail pending check
-            logRequest(tx.session, tx.requestName, KO, tx.start, nowMillis, Some("Check didn't succeed by the time a new one was set up"))
-            Session.MarkAsFailedUpdate :: tx.updates
-        }
+        val updates = failCurrentCheck("Check didn't succeed by the time a new one was set up")
 
         // schedule timeout
         scheduler.scheduleOnce(timeout) {
@@ -125,12 +128,12 @@ class WebSocketActor(wsName: String) extends BaseActor with DataWriterClient {
       case ListenTimeout(requestName) =>
         if (tx.requestName == requestName)
           tx.check match {
-            case Some(check) =>
+            case None => // ignore, this timeout is outdated
+
+            case _ =>
               logRequest(tx.session, tx.requestName, KO, tx.start, nowMillis, Some("Check Timeout"))
               val newTx = tx.copy(check = None, updates = Session.MarkAsFailedUpdate :: tx.updates)
               context.become(openState(webSocket, newTx))
-
-            case _ => // ignore, this timeout is outdated
           }
 
       case OnMessage(message, time) =>
@@ -146,15 +149,7 @@ class WebSocketActor(wsName: String) extends BaseActor with DataWriterClient {
 
       case Close(requestName, next, session) =>
 
-        // fail pending checks
-        val updates = tx.check match {
-          case Some(check) =>
-            logRequest(tx.session, tx.requestName, KO, tx.start, nowMillis, Some("Check didn't succeed by the time the websocket was closed"))
-            Session.MarkAsFailedUpdate :: tx.updates
-
-          case None =>
-            tx.updates
-        }
+        val updates = failCurrentCheck("Check didn't succeed by the time the websocket was closed")
 
         logRequest(session, requestName, OK, tx.start, nowMillis)
 
