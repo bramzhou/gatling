@@ -16,8 +16,6 @@
  */
 package io.gatling.http.action.ws
 
-import scala.concurrent.duration.FiniteDuration
-
 import akka.actor.ActorDSL.actor
 import akka.actor.ActorRef
 import io.gatling.core.config.Protocols
@@ -40,9 +38,9 @@ class SendWebSocketMessageActionBuilder(requestName: Expression[String], wsName:
   def build(next: ActorRef, protocols: Protocols) = actor(new SendWebSocketMessageAction(requestName, wsName, message, next))
 }
 
-class ListenWebSocketActionBuilder(requestName: Expression[String], wsName: String, check: WebSocketCheck, timeout: Expression[FiniteDuration]) extends HttpActionBuilder {
+class ListenWebSocketActionBuilder(requestName: Expression[String], wsName: String, check: WebSocketCheck) extends HttpActionBuilder {
 
-  def build(next: ActorRef, protocols: Protocols) = actor(new ListenWebSocketAction(requestName, wsName, check, timeout, next))
+  def build(next: ActorRef, protocols: Protocols) = actor(new ListenWebSocketAction(requestName, wsName, check, next))
 }
 
 class ReconciliateWebSocketActionBuilder(wsName: String) extends HttpActionBuilder {

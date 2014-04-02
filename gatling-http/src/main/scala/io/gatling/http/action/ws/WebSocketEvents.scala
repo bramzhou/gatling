@@ -16,8 +16,6 @@
  */
 package io.gatling.http.action.ws
 
-import scala.concurrent.duration.FiniteDuration
-
 import com.ning.http.client.websocket.WebSocket
 
 import akka.actor.ActorRef
@@ -38,7 +36,7 @@ sealed trait WebSocketAction extends WebSocketEvent {
   def session: Session
 }
 case class SendMessage(requestName: String, message: WebSocketMessage, next: ActorRef, session: Session) extends WebSocketAction
-case class Listen(requestName: String, check: WebSocketCheck, timeout: FiniteDuration, next: ActorRef, session: Session) extends WebSocketAction
+case class Listen(requestName: String, check: WebSocketCheck, next: ActorRef, session: Session) extends WebSocketAction
 case class Close(requestName: String, next: ActorRef, session: Session) extends WebSocketAction
 case class Reconciliate(requestName: String, next: ActorRef, session: Session) extends WebSocketAction
 

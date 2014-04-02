@@ -15,18 +15,15 @@
  */
 package io.gatling.http.action.ws
 
-import scala.concurrent.duration.FiniteDuration
-
 import akka.actor.ActorRef
 import io.gatling.core.session.{ Expression, Session }
 import io.gatling.http.action.RequestAction
 import io.gatling.http.check.ws.WebSocketCheck
 
-class ListenWebSocketAction(val requestName: Expression[String], wsName: String, checks: WebSocketCheck, timeout: Expression[FiniteDuration], val next: ActorRef) extends RequestAction {
+class ListenWebSocketAction(val requestName: Expression[String], wsName: String, checks: WebSocketCheck, val next: ActorRef) extends RequestAction {
 
   def sendRequest(requestName: String, session: Session) =
     for {
       wsActor <- session(wsName).validate[ActorRef]
-      resolvedTimeout <- timeout(session)
-    } yield wsActor ! Listen(requestName, checks, resolvedTimeout, next, session)
+    } yield wsActor ! Listen(requestName, checks, next, session)
 }

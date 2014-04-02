@@ -88,16 +88,16 @@ class WebSocketActor(wsName: String) extends BaseActor with DataWriterClient {
         next ! newSession
       }
 
-    def failCurrentCheck(message: String): List[Session => Session] = {
-      tx.check match {
-        case None =>
-          tx.updates
+      def failCurrentCheck(message: String): List[Session => Session] = {
+        tx.check match {
+          case None =>
+            tx.updates
 
-        case _ =>
-          logRequest(tx.session, tx.requestName, KO, tx.start, nowMillis, Some(message))
-          Session.MarkAsFailedUpdate :: tx.updates
+          case _ =>
+            logRequest(tx.session, tx.requestName, KO, tx.start, nowMillis, Some(message))
+            Session.MarkAsFailedUpdate :: tx.updates
+        }
       }
-    }
 
     {
       case SendMessage(requestName, message, next, session) =>
@@ -113,12 +113,12 @@ class WebSocketActor(wsName: String) extends BaseActor with DataWriterClient {
 
         applyAndFlushUpdates(session, tx.updates, tx, next)
 
-      case Listen(requestName, check, timeout, next, session) =>
+      case Listen(requestName, check, next, session) =>
 
         val updates = failCurrentCheck("Check didn't succeed by the time a new one was set up")
 
         // schedule timeout
-        scheduler.scheduleOnce(timeout) {
+        scheduler.scheduleOnce(check.timeout) {
           self ! ListenTimeout(requestName)
         }
 

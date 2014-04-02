@@ -15,6 +15,9 @@
  */
 package io.gatling.http.check.ws
 
+import scala.concurrent.duration.FiniteDuration
+
 trait WebSocketCheck {
 
+  def timeout: FiniteDuration
 }
