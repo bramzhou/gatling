@@ -20,7 +20,7 @@ import java.util.{ List => JList, Map => JMap }
 import scala.collection.JavaConversions.{ asScalaBuffer, asScalaSet, collectionAsScalaIterable }
 
 import com.ning.http.client.Request
-import com.ning.http.multipart.Part
+import com.ning.http.multipart.{FilePart, StringPart, Part}
 
 import io.gatling.core.util.StringHelper.eol
 import io.gatling.http.response.Response
@@ -68,7 +68,8 @@ package object util {
       if (request.getParts != null && !request.getParts.isEmpty) {
         buff.append("parts=").append(eol)
         request.getParts.foreach {
-          case part: Part => buff.append(s"FilePart: name=${part.getName} contentType=${part.getContentType} charSet=${part.getCharSet} transferEncoding=${part.getTransferEncoding} contentId=${part.getContentId}$eol")
+          case part: StringPart => buff.append(s"StringPart: name=${part.getName} contentType=${part.getContentType} charSet=${part.getCharSet} transferEncoding=${part.getTransferEncoding} contentId=${part.getContentId}$eol")
+          case part: FilePart => buff.append(s"FilePart: name=${part.getName} contentType=${part.getContentType} charSet=${part.getCharSet} transferEncoding=${part.getTransferEncoding} contentId=${part.getContentId} filename=${part.getPar} contentDisposition=${}$eol")
         }
       }
 

@@ -16,14 +16,14 @@
 package io.gatling.http.action.ws
 
 import akka.actor.ActorRef
-import io.gatling.core.action.{ Failable, Interruptable }
-import io.gatling.core.session.Session
+import io.gatling.core.session._
+import io.gatling.http.action.RequestAction
 
-class ReconciliateWebSocketAction(wsName: String, val next: ActorRef) extends Interruptable with Failable {
+class ReconciliateWebSocketAction(val requestName: Expression[String], wsName: String, val next: ActorRef) extends RequestAction {
 
-  def executeOrFail(session: Session) = {
+  def sendRequest(requestName: String, session: Session) = {
     for {
       wsActor <- session(wsName).validate[ActorRef]
-    } yield wsActor ! Reconciliate(s"Reconciliate websocket '$wsName'", next, session)
+    } yield wsActor ! Reconciliate(requestName, next, session)
   }
 }

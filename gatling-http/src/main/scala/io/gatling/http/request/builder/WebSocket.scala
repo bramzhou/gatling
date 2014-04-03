@@ -16,8 +16,7 @@
  */
 package io.gatling.http.request.builder
 
-import scala.concurrent.duration.FiniteDuration
-import io.gatling.core.session.{ Expression, ExpressionWrapper, SessionPrivateAttributes }
+import io.gatling.core.session.{ Expression, SessionPrivateAttributes }
 import io.gatling.http.action.ws._
 import io.gatling.http.request.builder.WebSocket.defaultWebSocketName
 import io.gatling.http.check.ws.WebSocketCheck
@@ -29,73 +28,55 @@ object WebSocket {
 
 /**
  * @param requestName The name of this request
+ * @param wsName The name of the session attribute used to store the websocket
  */
-class WebSocket(requestName: Expression[String]) {
+class WebSocket(requestName: Expression[String], wsName: String = defaultWebSocketName) {
+
+  def wsName(wsName: String) = new WebSocket(requestName, wsName)
 
   /**
    * Opens a web socket and stores it in the session.
    *
    * @param url The socket URL
-   * @param wsName The name of the session attribute used to store the websocket
+   *
    */
-  def open(url: Expression[String], wsName: String = defaultWebSocketName) =
-    new OpenWebSocketRequestBuilder(CommonAttributes(requestName, "GET", Left(url)), wsName)
+  def open(url: Expression[String]) = new OpenWebSocketRequestBuilder(CommonAttributes(requestName, "GET", Left(url)), wsName)
 
   /**
    * Sends a binary message on the given websocket.
    *
    * @param bytes The message
-   * @param wsName The name of the session attribute storing the socket
    */
-  def sendBinaryMessage(bytes: Expression[Array[Byte]], wsName: String = defaultWebSocketName) = {
-    val message = bytes.map(BinaryMessage)
-    new SendWebSocketMessageActionBuilder(requestName, wsName, message)
-  }
+  def sendBinaryMessage(bytes: Expression[Array[Byte]]) = new SendWebSocketMessageActionBuilder(requestName, wsName, bytes.map(BinaryMessage))
 
   /**
    * Sends a text message on the given websocket.
    *
    * @param text The message
-   * @param wsName The name of the session attribute storing the socket
    */
-  def sendTextMessage(text: Expression[String], wsName: String = defaultWebSocketName) = {
-    val message = text.map(TextMessage)
-    new SendWebSocketMessageActionBuilder(requestName, wsName, message)
-  }
+  def sendTextMessage(text: Expression[String]) = new SendWebSocketMessageActionBuilder(requestName, wsName, text.map(TextMessage))
 
   /**
    * Listens to incoming messages on the given websocket.
    *
-   * @param timeout The maximum duration to listen
-   * @param wsName The name of the session attribute storing the websocket
+   * @param check The check
    */
-  def listen(timeout: FiniteDuration, wsName: String = defaultWebSocketName): WebSocketListenBuilder = listen(timeout.expression, wsName)
+  def listen(check: WebSocketCheck) = new ListenWebSocketActionBuilder(requestName, check, wsName)
 
   /**
-   * Listens to incoming messages on the given websocket.
+   * Await for the check to match incoming messages on the given websocket.
    *
-   * @param timeout The maximum duration to listen
-   * @param wsName The name of the session attribute storing the websocket
+   * @param check The check
    */
-  def listen(timeout: Expression[FiniteDuration], wsName: String): WebSocketListenBuilder = new WebSocketListenBuilder(requestName, timeout: Expression[FiniteDuration], wsName: String)
+  def await(check: WebSocketCheck) = new ListenWebSocketActionBuilder(requestName, check, wsName)
 
-  class WebSocketListenBuilder(requestName: Expression[String], timeout: Expression[FiniteDuration], wsName: String) {
-
-    /**
-     * Defines the condition for stopping listening to the websocket.
-     * @param check The condition
-     */
-    def until(check: WebSocketCheck) = new ListenWebSocketActionBuilder(requestName: Expression[String], wsName: String, check, timeout)
-  }
-
-  def reconciliate(wsName: String = defaultWebSocketName) =
-    new ReconciliateWebSocketActionBuilder(wsName)
+  /**
+   * Reconciliate the main state with the one of the websocket flow.
+   */
+  def reconciliate = new ReconciliateWebSocketActionBuilder(requestName, wsName)
 
   /**
    * Closes a websocket.
-   *
-   * @param wsName The name of the session attribute storing the websocket
    */
-  def close(wsName: String = defaultWebSocketName) =
-    new CloseWebSocketActionBuilder(requestName, wsName)
+  def close = new CloseWebSocketActionBuilder(requestName, wsName)
 }

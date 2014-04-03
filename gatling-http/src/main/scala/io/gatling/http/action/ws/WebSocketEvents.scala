@@ -28,14 +28,14 @@ case class OnOpen(tx: WebSocketTx, webSocket: WebSocket, time: Long) extends Web
 case class OnFailedOpen(tx: WebSocketTx, message: String, time: Long) extends WebSocketEvent
 case class OnMessage(message: String, time: Long) extends WebSocketEvent
 case class OnClose(status: Int, reason: String, time: Long) extends WebSocketEvent
-case class ListenTimeout(requestName: String) extends WebSocketEvent
+case class ListenTimeout(check: WebSocketCheck) extends WebSocketEvent
 
 sealed trait WebSocketAction extends WebSocketEvent {
   def requestName: String
   def next: ActorRef
   def session: Session
 }
-case class SendMessage(requestName: String, message: WebSocketMessage, next: ActorRef, session: Session) extends WebSocketAction
+case class SendMessage(requestName: String, message: WebSocketMessage, check: Option[WebSocketCheck], next: ActorRef, session: Session) extends WebSocketAction
 case class Listen(requestName: String, check: WebSocketCheck, next: ActorRef, session: Session) extends WebSocketAction
 case class Close(requestName: String, next: ActorRef, session: Session) extends WebSocketAction
 case class Reconciliate(requestName: String, next: ActorRef, session: Session) extends WebSocketAction

@@ -24,6 +24,7 @@ import io.gatling.core.result.writer.DataWriterClient
 import io.gatling.core.session.Session
 import io.gatling.core.util.TimeHelper.nowMillis
 import io.gatling.http.ahc.{ HttpEngine, WebSocketTx }
+import io.gatling.http.check.ws.WebSocketCheck
 
 class WebSocketActor(wsName: String) extends BaseActor with DataWriterClient {
 
@@ -73,36 +74,57 @@ class WebSocketActor(wsName: String) extends BaseActor with DataWriterClient {
       }
 
       def handleCrash(message: String, time: Long) {
-        if (tx.check.isDefined)
+
+        tx.check.foreach { check =>
           logRequest(tx.session, tx.requestName, KO, tx.start, time, Some(message))
+        }
 
         context.become(crashedState(tx, message))
       }
 
-      def applyAndFlushUpdates(session: Session, updates: List[Session => Session], tx: WebSocketTx, next: ActorRef) {
-        // update session and flush updates
-        val newSession = session.update(updates)
-        val newTx = tx.copy(updates = Nil)
-        context.become(openState(webSocket, newTx))
-
-        next ! newSession
-      }
-
-      def failCurrentCheck(message: String): List[Session => Session] = {
+      def failPendingCheck(message: String): WebSocketTx = {
         tx.check match {
-          case None =>
-            tx.updates
-
-          case _ =>
+          case Some(c) =>
             logRequest(tx.session, tx.requestName, KO, tx.start, nowMillis, Some(message))
-            Session.MarkAsFailedUpdate :: tx.updates
+            tx.copy(updates = Session.MarkAsFailedUpdate :: tx.updates)
+
+          case _ => tx
         }
       }
 
+      def listen(requestName: String, check: WebSocketCheck, next: ActorRef, session: Session) {
+
+        // schedule timeout
+        scheduler.scheduleOnce(check.timeout) {
+          self ! ListenTimeout(check)
+        }
+
+        val newTx = failPendingCheck("Check didn't succeed by the time a new one was set up")
+          .applyUpdates(session)
+          .copy(requestName = requestName, start = nowMillis, check = Some(check), next = next)
+        context.become(openState(webSocket, newTx))
+
+        if (!check.await)
+          next ! newTx.session
+      }
+
+      def reconciliate(next: ActorRef, session: Session) {
+        val newTx = tx.applyUpdates(session)
+        context.become(openState(webSocket, newTx))
+        next ! newTx.session
+      }
+
     {
-      case SendMessage(requestName, message, next, session) =>
+      case SendMessage(requestName, message, check, next, session) =>
 
         val now = nowMillis
+
+        check match {
+          case Some(c) =>
+            // do this immediately instead of self sending a Listen message so that other messages don't get a chance to be handled before
+            listen(requestName + " Check", c, next, session)
+          case _ => reconciliate(next, session)
+        }
 
         message match {
           case TextMessage(text)    => webSocket.sendTextMessage(text)
@@ -111,54 +133,37 @@ class WebSocketActor(wsName: String) extends BaseActor with DataWriterClient {
 
         logRequest(session, requestName, OK, now, now)
 
-        applyAndFlushUpdates(session, tx.updates, tx, next)
-
       case Listen(requestName, check, next, session) =>
+        listen(requestName, check, next, session)
 
-        val updates = failCurrentCheck("Check didn't succeed by the time a new one was set up")
+      case ListenTimeout(check) =>
+        if (tx.check.exists(_ == check)) {
+          // else ignore, this timeout is outdated
+          val newTx = failPendingCheck("Check Timeout")
+          context.become(openState(webSocket, newTx))
 
-        // schedule timeout
-        scheduler.scheduleOnce(check.timeout) {
-          self ! ListenTimeout(requestName)
+          if (check.await)
+            newTx.next ! newTx.applyUpdates(newTx.session).session
         }
 
-        val newTx = tx.copy(requestName = requestName, start = nowMillis, check = Some(check))
-        applyAndFlushUpdates(session, updates, newTx, next)
-
-      case ListenTimeout(requestName) =>
-        if (tx.requestName == requestName)
-          tx.check match {
-            case None => // ignore, this timeout is outdated
-
-            case _ =>
-              logRequest(tx.session, tx.requestName, KO, tx.start, nowMillis, Some("Check Timeout"))
-              val newTx = tx.copy(check = None, updates = Session.MarkAsFailedUpdate :: tx.updates)
-              context.become(openState(webSocket, newTx))
-          }
-
       case OnMessage(message, time) =>
-        // TODO
         logger.debug(s"Received message on websocket '$wsName':$message")
+        tx.check.foreach { check =>
+          // TODO
+        }
 
       case Reconciliate(requestName, next, session) =>
-
-        val newTx = tx.copy(updates = Nil)
-        context.become(openState(webSocket, newTx))
-
-        next ! session.update(tx.updates)
+        reconciliate(next, session)
 
       case Close(requestName, next, session) =>
 
-        val updates = failCurrentCheck("Check didn't succeed by the time the websocket was closed")
-
-        logRequest(session, requestName, OK, tx.start, nowMillis)
-
-        // will trigger OnClose
         webSocket.close()
 
-        context.become(closingState)
+        val newTx = failPendingCheck("Check didn't succeed by the time the websocket was asked to closed")
+          .applyUpdates(session)
+          .copy(requestName = requestName, start = nowMillis, next = next)
 
-        next ! session.update(updates).remove(wsName)
+        context.become(closingState(newTx))
 
       case OnClose(status, reason, time) =>
         // this close order wasn't triggered by the client, otherwise, we would have received a Close first and state would be closing or stopped
@@ -169,9 +174,11 @@ class WebSocketActor(wsName: String) extends BaseActor with DataWriterClient {
     }
   }
 
-  val closingState: Receive = {
+  def closingState(tx: WebSocketTx): Receive = {
     case OnClose =>
-      // only stop now so we don't get a dead letter
+      import tx._
+      logRequest(session, requestName, OK, start, nowMillis)
+      next ! session.remove(wsName)
       context.stop(self)
 
     case unexpected =>
@@ -182,7 +189,8 @@ class WebSocketActor(wsName: String) extends BaseActor with DataWriterClient {
 
     case action: WebSocketAction =>
       // reconnect on first client message tentative
-      HttpEngine.instance.startWebSocketTransaction(tx.copy(reconnectCount = tx.reconnectCount + 1), self)
+      val newTx = tx.copy(reconnectCount = tx.reconnectCount + 1)
+      HttpEngine.instance.startWebSocketTransaction(newTx, self)
 
       context.become(reconnectingState(status, reason, action))
 

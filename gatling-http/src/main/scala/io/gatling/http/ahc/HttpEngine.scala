@@ -65,7 +65,13 @@ case class WebSocketTx(session: Session,
                        start: Long,
                        reconnectCount: Int = 0,
                        check: Option[WebSocketCheck] = None,
-                       updates: List[Session => Session] = Nil)
+                       updates: List[Session => Session] = Nil) {
+
+  def applyUpdates(session: Session) = {
+    val newSession = session.update(updates)
+    copy(session = newSession, updates = Nil)
+  }
+}
 
 object HttpEngine extends AkkaDefaults with StrictLogging {
 
@@ -224,7 +230,7 @@ class HttpEngine extends AkkaDefaults with StrictLogging {
       val listener = new WebSocketListener(newTx, wsActor)
 
       val handler = new WebSocketUpgradeHandler.Builder().addWebSocketListener(listener).build
-      client.executeRequest(newTx.request, handler)
+      client.executeRequest(tx.request, handler)
 
     } catch {
       case e: Exception =>

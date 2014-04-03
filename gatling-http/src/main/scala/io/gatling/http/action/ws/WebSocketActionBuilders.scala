@@ -33,19 +33,22 @@ class OpenWebSocketActionBuilder(requestName: Expression[String], wsName: String
   }
 }
 
-class SendWebSocketMessageActionBuilder(requestName: Expression[String], wsName: String, message: Expression[WebSocketMessage]) extends HttpActionBuilder {
+class SendWebSocketMessageActionBuilder(requestName: Expression[String], wsName: String, message: Expression[WebSocketMessage], check: Option[WebSocketCheck] = None) extends HttpActionBuilder {
 
-  def build(next: ActorRef, protocols: Protocols) = actor(new SendWebSocketMessageAction(requestName, wsName, message, next))
+  def listen(check: WebSocketCheck) = new SendWebSocketMessageActionBuilder(requestName, wsName, message, Some(check))
+  def await(check: WebSocketCheck) = new SendWebSocketMessageActionBuilder(requestName, wsName, message, Some(check))
+
+  def build(next: ActorRef, protocols: Protocols) = actor(new SendWebSocketMessageAction(requestName, wsName, message, check, next))
 }
 
-class ListenWebSocketActionBuilder(requestName: Expression[String], wsName: String, check: WebSocketCheck) extends HttpActionBuilder {
+class ListenWebSocketActionBuilder(requestName: Expression[String], check: WebSocketCheck, wsName: String) extends HttpActionBuilder {
 
-  def build(next: ActorRef, protocols: Protocols) = actor(new ListenWebSocketAction(requestName, wsName, check, next))
+  def build(next: ActorRef, protocols: Protocols) = actor(new ListenWebSocketAction(requestName, check, wsName, next))
 }
 
-class ReconciliateWebSocketActionBuilder(wsName: String) extends HttpActionBuilder {
+class ReconciliateWebSocketActionBuilder(requestName: Expression[String], wsName: String) extends HttpActionBuilder {
 
-  def build(next: ActorRef, protocols: Protocols) = actor(new ReconciliateWebSocketAction(wsName, next))
+  def build(next: ActorRef, protocols: Protocols) = actor(new ReconciliateWebSocketAction(requestName, wsName, next))
 }
 
 class CloseWebSocketActionBuilder(requestName: Expression[String], wsName: String) extends HttpActionBuilder {

@@ -20,4 +20,5 @@ import scala.concurrent.duration.FiniteDuration
 trait WebSocketCheck {
 
   def timeout: FiniteDuration
+  def await: Boolean
 }

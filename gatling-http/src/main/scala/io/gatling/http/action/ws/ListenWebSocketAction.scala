@@ -16,14 +16,14 @@
 package io.gatling.http.action.ws
 
 import akka.actor.ActorRef
-import io.gatling.core.session.{ Expression, Session }
-import io.gatling.http.action.RequestAction
+import io.gatling.core.session._
 import io.gatling.http.check.ws.WebSocketCheck
+import io.gatling.http.action.RequestAction
 
-class ListenWebSocketAction(val requestName: Expression[String], wsName: String, checks: WebSocketCheck, val next: ActorRef) extends RequestAction {
+class ListenWebSocketAction(val requestName: Expression[String], check: WebSocketCheck, wsName: String, val next: ActorRef) extends RequestAction {
 
   def sendRequest(requestName: String, session: Session) =
     for {
       wsActor <- session(wsName).validate[ActorRef]
-    } yield wsActor ! Listen(requestName, checks, next, session)
+    } yield wsActor ! Listen(requestName, check, next, session)
 }
