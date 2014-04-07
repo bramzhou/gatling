@@ -35,8 +35,7 @@ class OpenWebSocketActionBuilder(requestName: Expression[String], wsName: String
 
 class SendWebSocketMessageActionBuilder(requestName: Expression[String], wsName: String, message: Expression[WebSocketMessage], check: Option[WebSocketCheck] = None) extends HttpActionBuilder {
 
-  def listen(check: WebSocketCheck) = new SendWebSocketMessageActionBuilder(requestName, wsName, message, Some(check))
-  def await(check: WebSocketCheck) = new SendWebSocketMessageActionBuilder(requestName, wsName, message, Some(check))
+  def check(check: WebSocketCheck) = new SendWebSocketMessageActionBuilder(requestName, wsName, message, Some(check))
 
   def build(next: ActorRef, protocols: Protocols) = actor(new SendWebSocketMessageAction(requestName, wsName, message, check, next))
 }

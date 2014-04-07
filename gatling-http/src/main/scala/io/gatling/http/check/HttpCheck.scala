@@ -29,7 +29,8 @@ import io.gatling.http.response.{ Response, ResponseBodyUsageStrategy }
  * @param wrapped the underlying check
  * @param order the check priority
  */
-case class HttpCheck(wrapped: Check[Response], order: HttpCheckOrder, responseBodyUsageStrategy: Option[ResponseBodyUsageStrategy]) extends Check[Response] with Ordered[HttpCheck] {
-  def check(response: Response, session: Session)(implicit cache: mutable.Map[Any, Any]): Validation[CheckResult] = wrapped.check(response, session)
+case class HttpCheck(wrapped: Check[Response], order: HttpCheckOrder, responseBodyUsageStrategy: Option[ResponseBodyUsageStrategy])
+    extends Check[Response] with Ordered[HttpCheck] {
+  override def check(response: Response, session: Session)(implicit cache: mutable.Map[Any, Any]): Validation[CheckResult] = wrapped.check(response, session)
   def compare(that: HttpCheck) = order.compare(that.order)
 }

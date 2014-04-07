@@ -15,6 +15,8 @@
  */
 package io.gatling.http
 
+import scala.concurrent.duration._
+
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
 
@@ -39,10 +41,13 @@ class WebSocketCompileTest extends Simulation {
     .pause(1)
     .exec(websocket("Connect WS").open("/room/chat?username=${id}"))
     .pause(1)
-    .repeat(1, "i") {
-      exec(websocket("Say Hello WS").sendTextMessage("""{"text": "Hello, I'm ${id} and this is message ${i}!"}"""))
-        .pause(1)
-    }.exec(websocket("Close WS").close())
+    .repeat(2, "i") {
+      exec(websocket("Say Hello WS")
+        .sendTextMessage("""{"text": "Hello, I'm ${id} and this is message ${i}!"}""")
+        .check(ws.within(30 seconds).await(1).jsonPath("$.message").saveAs("message"))
+      ).pause(1)
+    }
+    .exec(websocket("Close WS").close)
 
   setUp(scn.inject(rampUsers(100) over 10)).protocols(httpConf)
 }

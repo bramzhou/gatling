@@ -24,8 +24,9 @@ import io.gatling.http.config.HttpProtocolBuilder
 import io.gatling.http.cookie.CookieHandling
 import io.gatling.http.request.BodyProcessors
 import io.gatling.http.request.builder.{ Http, WebSocket }
+import io.gatling.http.check.ws.WebSocketCheckSupport
 
-object Predef extends HttpCheckSupport {
+object Predef extends HttpCheckSupport with WebSocketCheckSupport {
   type Request = com.ning.http.client.Request
   type Response = io.gatling.http.response.Response
 

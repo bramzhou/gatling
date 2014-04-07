@@ -57,18 +57,11 @@ class WebSocket(requestName: Expression[String], wsName: String = defaultWebSock
   def sendTextMessage(text: Expression[String]) = new SendWebSocketMessageActionBuilder(requestName, wsName, text.map(TextMessage))
 
   /**
-   * Listens to incoming messages on the given websocket.
+   * Check for incoming messages on the given websocket.
    *
    * @param check The check
    */
-  def listen(check: WebSocketCheck) = new ListenWebSocketActionBuilder(requestName, check, wsName)
-
-  /**
-   * Await for the check to match incoming messages on the given websocket.
-   *
-   * @param check The check
-   */
-  def await(check: WebSocketCheck) = new ListenWebSocketActionBuilder(requestName, check, wsName)
+  def check(check: WebSocketCheck) = new ListenWebSocketActionBuilder(requestName, check, wsName)
 
   /**
    * Reconciliate the main state with the one of the websocket flow.
