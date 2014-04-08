@@ -63,6 +63,8 @@ class WebSocket(requestName: Expression[String], wsName: String = defaultWebSock
    */
   def check(check: WebSocketCheck) = new ListenWebSocketActionBuilder(requestName, check, wsName)
 
+  def cancelCheck = ???
+
   /**
    * Reconciliate the main state with the one of the websocket flow.
    */

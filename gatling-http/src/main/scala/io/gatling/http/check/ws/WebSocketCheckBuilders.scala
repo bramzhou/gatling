@@ -21,7 +21,8 @@ import scala.concurrent.duration.FiniteDuration
 
 object WebSocketCheckBuilders {
 
-  def checkFactory(timeout: FiniteDuration, expectedCount: Int, await: Boolean): CheckFactory[WebSocketCheck, String] = wrapped => new WebSocketCheck(wrapped, timeout, expectedCount, await)
+  def checkFactory(timeout: FiniteDuration, expectation: Expectation, await: Boolean): CheckFactory[WebSocketCheck, String] =
+    wrapped => new WebSocketCheck(wrapped, timeout, expectation, await)
 
   val passThroughMessagePreparer: Preparer[String, String] = (r: String) => r.success
 }

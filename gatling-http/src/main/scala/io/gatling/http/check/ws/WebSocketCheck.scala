@@ -21,6 +21,10 @@ import io.gatling.core.session.Session
 import scala.collection.mutable
 import io.gatling.core.validation.Validation
 
-case class WebSocketCheck(wrapped: Check[String], timeout: FiniteDuration, expectedCount: Int, await: Boolean) extends Check[String] {
+sealed trait Expectation
+case class ExpectedCount(value: Int) extends Expectation
+case class ExpectedRange(range: Range) extends Expectation
+
+case class WebSocketCheck(wrapped: Check[String], timeout: FiniteDuration, expectation: Expectation, await: Boolean) extends Check[String] {
   override def check(message: String, session: Session)(implicit cache: mutable.Map[Any, Any]): Validation[CheckResult] = wrapped.check(message, session)
 }

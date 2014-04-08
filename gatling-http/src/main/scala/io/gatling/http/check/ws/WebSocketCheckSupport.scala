@@ -21,28 +21,39 @@ import io.gatling.core.session.Expression
 
 trait WebSocketCheckSupport {
 
+  implicit def wsStep32Step3(step: WebSocketCheckDSL4): WebSocketCheck = step.message.find.exists.build
+
   val ws = WebSocketCheckDSL1
 }
 
 object WebSocketCheckDSL1 {
 
-  def within(timeout: FiniteDuration) = new WebSocketCheckDSL2(timeout)
+  def listen = new WebSocketCheckDSL2(false)
+
+  def await = new WebSocketCheckDSL2(true)
 }
 
-class WebSocketCheckDSL2(timeout: FiniteDuration) {
+class WebSocketCheckDSL2(await: Boolean) {
 
-  def expect(count: Int) = new WebSocketCheckDSL3(timeout, count, await = false)
-
-  def await(count: Int) = new WebSocketCheckDSL3(timeout, count, await = true)
+  def within(timeout: FiniteDuration) = new WebSocketCheckDSL3(await, timeout)
 }
 
-class WebSocketCheckDSL3(timeout: FiniteDuration, expectedCount: Int, await: Boolean) {
+class WebSocketCheckDSL3(await: Boolean, timeout: FiniteDuration) {
 
-  def regex(expression: Expression[String]) = WebSocketRegexCheckBuilder.regex(expression, WebSocketCheckBuilders.checkFactory(timeout, expectedCount, await))
+  def until(count: Int) = new WebSocketCheckDSL4(await, timeout, ExpectedCount(count), false)
 
-  def jsonPath(path: Expression[String]) = WebSocketJsonPathCheckBuilder.jsonPath(path, WebSocketCheckBuilders.checkFactory(timeout, expectedCount, await))
+  def expect(count: Int) = new WebSocketCheckDSL4(await, timeout, ExpectedCount(count), true)
 
-  def jsonpJsonPath(path: Expression[String]) = WebSocketJsonpJsonPathCheckBuilder.jsonpJsonPath(path, WebSocketCheckBuilders.checkFactory(timeout, expectedCount, await))
+  def expect(range: Range) = new WebSocketCheckDSL4(await, timeout, ExpectedRange(range), true)
+}
 
-  val message = WebSocketPlainCheckBuilder.message(WebSocketCheckBuilders.checkFactory(timeout, expectedCount, await))
+class WebSocketCheckDSL4(await: Boolean, timeout: FiniteDuration, expectation: Expectation, waitForTimeout: Boolean) {
+
+  def regex(expression: Expression[String]) = WebSocketRegexCheckBuilder.regex(expression, WebSocketCheckBuilders.checkFactory(timeout, expectation, await))
+
+  def jsonPath(path: Expression[String]) = WebSocketJsonPathCheckBuilder.jsonPath(path, WebSocketCheckBuilders.checkFactory(timeout, expectation, await))
+
+  def jsonpJsonPath(path: Expression[String]) = WebSocketJsonpJsonPathCheckBuilder.jsonpJsonPath(path, WebSocketCheckBuilders.checkFactory(timeout, expectation, await))
+
+  val message = WebSocketPlainCheckBuilder.message(WebSocketCheckBuilders.checkFactory(timeout, expectation, await))
 }

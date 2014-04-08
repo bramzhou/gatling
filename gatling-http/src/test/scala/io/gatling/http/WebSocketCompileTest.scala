@@ -44,9 +44,29 @@ class WebSocketCompileTest extends Simulation {
     .repeat(2, "i") {
       exec(websocket("Say Hello WS")
         .sendTextMessage("""{"text": "Hello, I'm ${id} and this is message ${i}!"}""")
-        .check(ws.within(30 seconds).await(1).jsonPath("$.message").saveAs("message"))
       ).pause(1)
     }
+    .exec(
+      websocket("Message1")
+        .sendTextMessage( """{"text": "Hello, I'm ${id} and this is message ${i}!"}""")
+        .check(ws.await.within(30 seconds).expect(1).jsonPath("$.message").saveAs("message1"))
+    ).exec(
+      websocket("Message2")
+        .sendTextMessage( """{"text": "Hello, I'm ${id} and this is message ${i}!"}""")
+        .check(ws.listen.within(30 seconds).until(1).jsonPath("$.message").saveAs("message2"))
+    ).exec(
+      websocket("Message3")
+        .sendTextMessage( """{"text": "Hello, I'm ${id} and this is message ${i}!"}""")
+        .check(ws.await.within(30 seconds).expect(1).regex("$.message").saveAs("message3"))
+    ).exec(
+      websocket("Message3")
+        .sendTextMessage( """{"text": "Hello, I'm ${id} and this is message ${i}!"}""")
+        .check(ws.listen.within(30 seconds).expect(1).message)
+    ).exec(
+      websocket("Message4")
+        .sendTextMessage( """{"text": "Hello, I'm ${id} and this is message ${i}!"}""")
+        .check(ws.await.within(30 seconds).until(1))
+    )
     .exec(websocket("Close WS").close)
 
   setUp(scn.inject(rampUsers(100) over 10)).protocols(httpConf)
