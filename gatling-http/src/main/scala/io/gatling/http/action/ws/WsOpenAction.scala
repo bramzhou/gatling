@@ -23,10 +23,10 @@ import akka.actor.ActorRef
 import io.gatling.core.action.Interruptable
 import io.gatling.core.session.{ Expression, Session }
 import io.gatling.core.util.TimeHelper.nowMillis
-import io.gatling.http.ahc.{ HttpEngine, WebSocketTx }
+import io.gatling.http.ahc.{ HttpEngine, WsTx }
 import io.gatling.http.config.HttpProtocol
 
-class OpenWebSocketAction(
+class WsOpenAction(
     requestName: Expression[String],
     wsName: String,
     request: Expression[Request],
@@ -35,10 +35,10 @@ class OpenWebSocketAction(
 
   def execute(session: Session) {
 
-      def open(tx: WebSocketTx) {
+      def open(tx: WsTx) {
         logger.info(s"Opening websocket '$wsName': Scenario '${session.scenarioName}', UserId #${session.userId}")
 
-        val wsActor = actor(context)(new WebSocketActor(wsName))
+        val wsActor = actor(context)(new WsActor(wsName))
 
         HttpEngine.instance.startWebSocketTransaction(tx, wsActor)
       }
@@ -46,6 +46,6 @@ class OpenWebSocketAction(
     for {
       requestName <- requestName(session)
       request <- request(session)
-    } yield open(WebSocketTx(session, request, requestName, protocol, next, nowMillis))
+    } yield open(WsTx(session, request, requestName, protocol, next, nowMillis))
   }
 }

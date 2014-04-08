@@ -15,17 +15,17 @@
  */
 package io.gatling.http.action.ws
 
-import com.ning.http.client.websocket.{ WebSocket, WebSocketCloseCodeReasonListener, WebSocketTextListener => AHCWebSocketTextListener }
+import com.ning.http.client.websocket.{ WebSocket, WebSocketCloseCodeReasonListener, WebSocketTextListener }
 
 import akka.actor.ActorRef
 import io.gatling.core.util.TimeHelper.nowMillis
-import io.gatling.http.ahc.WebSocketTx
+import io.gatling.http.ahc.WsTx
 import com.typesafe.scalalogging.slf4j.StrictLogging
 
-class WebSocketListener(tx: WebSocketTx, wsActor: ActorRef)
-    extends AHCWebSocketTextListener with WebSocketCloseCodeReasonListener with StrictLogging {
+class WsListener(tx: WsTx, wsActor: ActorRef)
+    extends WebSocketTextListener with WebSocketCloseCodeReasonListener with StrictLogging {
 
-  private var state: WebSocketListenerState = Opening
+  private var state: WsListenerState = Opening
 
   def onOpen(webSocket: WebSocket) {
     state = Open
@@ -63,10 +63,10 @@ class WebSocketListener(tx: WebSocketTx, wsActor: ActorRef)
   }
 }
 
-private sealed trait WebSocketListenerState
+private sealed trait WsListenerState
 
-private case object Opening extends WebSocketListenerState
+private case object Opening extends WsListenerState
 
-private case object Open extends WebSocketListenerState
+private case object Open extends WsListenerState
 
-private case object Closed extends WebSocketListenerState
+private case object Closed extends WsListenerState

@@ -19,7 +19,7 @@ import akka.actor.ActorRef
 import io.gatling.core.session._
 import io.gatling.http.action.RequestAction
 
-class ReconciliateWebSocketAction(val requestName: Expression[String], wsName: String, val next: ActorRef) extends RequestAction {
+class WsReconciliateAction(val requestName: Expression[String], wsName: String, val next: ActorRef) extends RequestAction {
 
   def sendRequest(requestName: String, session: Session) = {
     for {

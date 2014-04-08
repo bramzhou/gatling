@@ -34,13 +34,13 @@ object WebSocketJsonPathCheckBuilder {
     case _                                    => handleParseException(JacksonParser.parse)
   }
 
-  def jsonPath(path: Expression[String], checkFactory: CheckFactory[WebSocketCheck, String]) =
+  def jsonPath(path: Expression[String], checkFactory: CheckFactory[WsCheck, String]) =
     new WebSocketJsonPathCheckBuilder[String](path, checkFactory) with WebSocketJsonPathOfType
 }
 
 class WebSocketJsonPathCheckBuilder[X](private[ws] val path: Expression[String],
-                                       private[ws] val checkFactory: CheckFactory[WebSocketCheck, String])(implicit jsonFilter: JsonFilter[X])
-    extends DefaultMultipleFindCheckBuilder[WebSocketCheck, String, Any, X](
+                                       private[ws] val checkFactory: CheckFactory[WsCheck, String])(implicit jsonFilter: JsonFilter[X])
+    extends DefaultMultipleFindCheckBuilder[WsCheck, String, Any, X](
       checkFactory,
       WebSocketJsonPathCheckBuilder.preparer) {
 

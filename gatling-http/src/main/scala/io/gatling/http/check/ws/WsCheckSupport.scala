@@ -21,7 +21,7 @@ import io.gatling.core.session.Expression
 
 trait WebSocketCheckSupport {
 
-  implicit def wsStep32Step3(step: WebSocketCheckDSL4): WebSocketCheck = step.message.find.exists.build
+  implicit def wsStep32Step3(step: WebSocketCheckDSL4): WsCheck = step.message.find.exists.build
 
   val ws = WebSocketCheckDSL1
 }
@@ -49,11 +49,11 @@ class WebSocketCheckDSL3(await: Boolean, timeout: FiniteDuration) {
 
 class WebSocketCheckDSL4(await: Boolean, timeout: FiniteDuration, expectation: Expectation, waitForTimeout: Boolean) {
 
-  def regex(expression: Expression[String]) = WebSocketRegexCheckBuilder.regex(expression, WebSocketCheckBuilders.checkFactory(timeout, expectation, await))
+  def regex(expression: Expression[String]) = WebSocketRegexCheckBuilder.regex(expression, WsCheckBuilders.checkFactory(timeout, expectation, await))
 
-  def jsonPath(path: Expression[String]) = WebSocketJsonPathCheckBuilder.jsonPath(path, WebSocketCheckBuilders.checkFactory(timeout, expectation, await))
+  def jsonPath(path: Expression[String]) = WebSocketJsonPathCheckBuilder.jsonPath(path, WsCheckBuilders.checkFactory(timeout, expectation, await))
 
-  def jsonpJsonPath(path: Expression[String]) = WebSocketJsonpJsonPathCheckBuilder.jsonpJsonPath(path, WebSocketCheckBuilders.checkFactory(timeout, expectation, await))
+  def jsonpJsonPath(path: Expression[String]) = WebSocketJsonpJsonPathCheckBuilder.jsonpJsonPath(path, WsCheckBuilders.checkFactory(timeout, expectation, await))
 
-  val message = WebSocketPlainCheckBuilder.message(WebSocketCheckBuilders.checkFactory(timeout, expectation, await))
+  val message = WebSocketPlainCheckBuilder.message(WsCheckBuilders.checkFactory(timeout, expectation, await))
 }

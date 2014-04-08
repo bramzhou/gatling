@@ -32,13 +32,13 @@ object WebSocketJsonpJsonPathCheckBuilder extends StrictLogging {
 
   val jsonpPreparer: Preparer[String, Any] = HttpBodyJsonpJsonPathCheckBuilder.parseJsonpString
 
-  def jsonpJsonPath(path: Expression[String], checkFactory: CheckFactory[WebSocketCheck, String]) =
+  def jsonpJsonPath(path: Expression[String], checkFactory: CheckFactory[WsCheck, String]) =
     new WebSocketJsonpJsonPathCheckBuilder[String](path, checkFactory) with WebSocketJsonpJsonPathOfType
 }
 
 class WebSocketJsonpJsonPathCheckBuilder[X](private[ws] val path: Expression[String],
-                                            private[ws] val checkFactory: CheckFactory[WebSocketCheck, String])(implicit groupExtractor: JsonFilter[X])
-    extends DefaultMultipleFindCheckBuilder[WebSocketCheck, String, Any, X](checkFactory,
+                                            private[ws] val checkFactory: CheckFactory[WsCheck, String])(implicit groupExtractor: JsonFilter[X])
+    extends DefaultMultipleFindCheckBuilder[WsCheck, String, Any, X](checkFactory,
       WebSocketJsonpJsonPathCheckBuilder.jsonpPreparer) {
 
   def findExtractor(occurrence: Int) = path.map(new SingleJsonPathExtractor(_, occurrence))

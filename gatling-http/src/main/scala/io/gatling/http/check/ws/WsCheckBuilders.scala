@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- * 		http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,16 +15,14 @@
  */
 package io.gatling.http.check.ws
 
+import io.gatling.core.check.{ CheckFactory, Preparer }
+import io.gatling.core.validation.SuccessWrapper
 import scala.concurrent.duration.FiniteDuration
-import io.gatling.core.check.{ CheckResult, Check }
-import io.gatling.core.session.Session
-import scala.collection.mutable
-import io.gatling.core.validation.Validation
 
-sealed trait Expectation
-case class ExpectedCount(value: Int) extends Expectation
-case class ExpectedRange(range: Range) extends Expectation
+object WsCheckBuilders {
 
-case class WebSocketCheck(wrapped: Check[String], timeout: FiniteDuration, expectation: Expectation, await: Boolean) extends Check[String] {
-  override def check(message: String, session: Session)(implicit cache: mutable.Map[Any, Any]): Validation[CheckResult] = wrapped.check(message, session)
+  def checkFactory(timeout: FiniteDuration, expectation: Expectation, await: Boolean): CheckFactory[WsCheck, String] =
+    wrapped => new WsCheck(wrapped, timeout, expectation, await)
+
+  val passThroughMessagePreparer: Preparer[String, String] = (r: String) => r.success
 }

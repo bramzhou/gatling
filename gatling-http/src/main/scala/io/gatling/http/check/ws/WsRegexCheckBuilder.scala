@@ -27,15 +27,15 @@ trait WebSocketRegexOfType {
 
 object WebSocketRegexCheckBuilder {
 
-  def regex(expression: Expression[String], checkFactory: CheckFactory[WebSocketCheck, String]) =
+  def regex(expression: Expression[String], checkFactory: CheckFactory[WsCheck, String]) =
     new WebSocketRegexCheckBuilder[String](expression, checkFactory) with WebSocketRegexOfType
 }
 
 class WebSocketRegexCheckBuilder[X](private[ws] val expression: Expression[String],
-                                    private[ws] val checkFactory: CheckFactory[WebSocketCheck, String])(implicit groupExtractor: GroupExtractor[X])
-    extends DefaultMultipleFindCheckBuilder[WebSocketCheck, String, CharSequence, X](
+                                    private[ws] val checkFactory: CheckFactory[WsCheck, String])(implicit groupExtractor: GroupExtractor[X])
+    extends DefaultMultipleFindCheckBuilder[WsCheck, String, CharSequence, X](
       checkFactory,
-      WebSocketCheckBuilders.passThroughMessagePreparer) {
+      WsCheckBuilders.passThroughMessagePreparer) {
 
   def findExtractor(occurrence: Int) = expression.map(new SingleRegexExtractor(_, occurrence))
 

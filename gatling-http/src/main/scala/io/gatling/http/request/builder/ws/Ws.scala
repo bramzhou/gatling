@@ -14,14 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.gatling.http.request.builder
+package io.gatling.http.request.builder.ws
 
 import io.gatling.core.session.{ Expression, SessionPrivateAttributes }
 import io.gatling.http.action.ws._
-import io.gatling.http.request.builder.WebSocket.defaultWebSocketName
-import io.gatling.http.check.ws.WebSocketCheck
+import io.gatling.http.check.ws.WsCheck
+import io.gatling.http.request.builder.CommonAttributes
 
-object WebSocket {
+object Ws {
 
   val defaultWebSocketName = SessionPrivateAttributes.privateAttributePrefix + "http.webSocket"
 }
@@ -30,9 +30,9 @@ object WebSocket {
  * @param requestName The name of this request
  * @param wsName The name of the session attribute used to store the websocket
  */
-class WebSocket(requestName: Expression[String], wsName: String = defaultWebSocketName) {
+class Ws(requestName: Expression[String], wsName: String = defaultWebSocketName) {
 
-  def wsName(wsName: String) = new WebSocket(requestName, wsName)
+  def wsName(wsName: String) = new Ws(requestName, wsName)
 
   /**
    * Opens a web socket and stores it in the session.
@@ -40,38 +40,42 @@ class WebSocket(requestName: Expression[String], wsName: String = defaultWebSock
    * @param url The socket URL
    *
    */
-  def open(url: Expression[String]) = new OpenWebSocketRequestBuilder(CommonAttributes(requestName, "GET", Left(url)), wsName)
+  def open(url: Expression[String]) = new WsOpenRequestBuilder(CommonAttributes(requestName, "GET", Left(url)), wsName)
 
   /**
    * Sends a binary message on the given websocket.
    *
    * @param bytes The message
    */
-  def sendBinaryMessage(bytes: Expression[Array[Byte]]) = new SendWebSocketMessageActionBuilder(requestName, wsName, bytes.map(BinaryMessage))
+  def sendBinaryMessage(bytes: Expression[Array[Byte]]) = new WsSendActionBuilder(requestName, wsName, bytes.map(BinaryMessage))
 
   /**
    * Sends a text message on the given websocket.
    *
    * @param text The message
    */
-  def sendTextMessage(text: Expression[String]) = new SendWebSocketMessageActionBuilder(requestName, wsName, text.map(TextMessage))
+  def sendTextMessage(text: Expression[String]) = new WsSendActionBuilder(requestName, wsName, text.map(TextMessage))
 
   /**
    * Check for incoming messages on the given websocket.
    *
    * @param check The check
    */
-  def check(check: WebSocketCheck) = new ListenWebSocketActionBuilder(requestName, check, wsName)
+  def check(check: WsCheck) = new WsSetCheckActionBuilder(requestName, check, wsName)
 
-  def cancelCheck = ???
+  /**
+   * Cancel current check on the given websocket.
+   *
+   */
+  def cancelCheck = new WsCancelCheckActionBuilder(requestName, wsName)
 
   /**
    * Reconciliate the main state with the one of the websocket flow.
    */
-  def reconciliate = new ReconciliateWebSocketActionBuilder(requestName, wsName)
+  def reconciliate = new WsReconciliateActionBuilder(requestName, wsName)
 
   /**
    * Closes a websocket.
    */
-  def close = new CloseWebSocketActionBuilder(requestName, wsName)
+  def close = new WsCloseActionBuilder(requestName, wsName)
 }

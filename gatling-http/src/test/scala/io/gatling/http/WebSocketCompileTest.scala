@@ -63,6 +63,9 @@ class WebSocketCompileTest extends Simulation {
         .sendTextMessage( """{"text": "Hello, I'm ${id} and this is message ${i}!"}""")
         .check(ws.listen.within(30 seconds).expect(1).message)
     ).exec(
+          websocket("Cancel")
+            .cancelCheck
+    ).exec(
       websocket("Message4")
         .sendTextMessage( """{"text": "Hello, I'm ${id} and this is message ${i}!"}""")
         .check(ws.await.within(30 seconds).until(1))

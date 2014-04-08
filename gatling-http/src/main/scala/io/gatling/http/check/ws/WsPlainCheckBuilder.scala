@@ -27,12 +27,12 @@ object WebSocketPlainCheckBuilder {
     def apply(prepared: String) = Some(prepared).success
   }.expression
 
-  def message(checkFactory: CheckFactory[WebSocketCheck, String]) =
+  def message(checkFactory: CheckFactory[WsCheck, String]) =
     new WebSocketPlainCheckBuilder(checkFactory)
 }
 
-class WebSocketPlainCheckBuilder(checkFactory: CheckFactory[WebSocketCheck, String])
-  extends DefaultFindCheckBuilder[WebSocketCheck, String, String, String](
+class WebSocketPlainCheckBuilder(checkFactory: CheckFactory[WsCheck, String])
+  extends DefaultFindCheckBuilder[WsCheck, String, String, String](
     checkFactory,
-    WebSocketCheckBuilders.passThroughMessagePreparer,
+    WsCheckBuilders.passThroughMessagePreparer,
     WebSocketPlainCheckBuilder.extractor)

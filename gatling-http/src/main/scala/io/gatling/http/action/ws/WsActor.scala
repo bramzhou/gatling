@@ -23,10 +23,10 @@ import io.gatling.core.result.message.{ KO, OK, Status }
 import io.gatling.core.result.writer.DataWriterClient
 import io.gatling.core.session.Session
 import io.gatling.core.util.TimeHelper.nowMillis
-import io.gatling.http.ahc.{ HttpEngine, WebSocketTx }
-import io.gatling.http.check.ws.WebSocketCheck
+import io.gatling.http.ahc.{HttpEngine, WsTx}
+import io.gatling.http.check.ws.WsCheck
 
-class WebSocketActor(wsName: String) extends BaseActor with DataWriterClient {
+class WsActor(wsName: String) extends BaseActor with DataWriterClient {
 
   def receive = initialState
 
@@ -60,7 +60,7 @@ class WebSocketActor(wsName: String) extends BaseActor with DataWriterClient {
       errorMessage)
   }
 
-  def openState(webSocket: WebSocket, tx: WebSocketTx): Receive = {
+  def openState(webSocket: WebSocket, tx: WsTx): Receive = {
 
       def handleClose(status: Int, reason: String, time: Long) {
         if (tx.protocol.wsPart.reconnect)
@@ -82,7 +82,7 @@ class WebSocketActor(wsName: String) extends BaseActor with DataWriterClient {
         context.become(crashedState(tx, message))
       }
 
-      def failPendingCheck(message: String): WebSocketTx = {
+    def failPendingCheck(message: String): WsTx = {
         tx.check match {
           case Some(c) =>
             logRequest(tx.session, tx.requestName, KO, tx.start, nowMillis, Some(message))
@@ -92,7 +92,7 @@ class WebSocketActor(wsName: String) extends BaseActor with DataWriterClient {
         }
       }
 
-      def listen(requestName: String, check: WebSocketCheck, next: ActorRef, session: Session) {
+    def setCheck(requestName: String, check: WsCheck, next: ActorRef, session: Session) {
 
         // schedule timeout
         scheduler.scheduleOnce(check.timeout) {
@@ -115,14 +115,14 @@ class WebSocketActor(wsName: String) extends BaseActor with DataWriterClient {
       }
 
     {
-      case SendMessage(requestName, message, check, next, session) =>
+      case Send(requestName, message, check, next, session) =>
 
         val now = nowMillis
 
         check match {
           case Some(c) =>
             // do this immediately instead of self sending a Listen message so that other messages don't get a chance to be handled before
-            listen(requestName + " Check", c, next, session)
+            setCheck(requestName + " Check", c, next, session)
           case _ => reconciliate(next, session)
         }
 
@@ -133,8 +133,17 @@ class WebSocketActor(wsName: String) extends BaseActor with DataWriterClient {
 
         logRequest(session, requestName, OK, now, now)
 
-      case Listen(requestName, check, next, session) =>
-        listen(requestName, check, next, session)
+      case SetCheck(requestName, check, next, session) =>
+        setCheck(requestName, check, next, session)
+
+      case CancelCheck(requestName, next, session) =>
+
+        val newTx = tx
+          .applyUpdates(session)
+          .copy(check = None)
+
+        context.become(openState(webSocket, newTx))
+        next ! newTx.session
 
       case ListenTimeout(check) =>
         if (tx.check.exists(_ == check)) {
@@ -174,7 +183,7 @@ class WebSocketActor(wsName: String) extends BaseActor with DataWriterClient {
     }
   }
 
-  def closingState(tx: WebSocketTx): Receive = {
+  def closingState(tx: WsTx): Receive = {
     case OnClose =>
       import tx._
       logRequest(session, requestName, OK, start, nowMillis)
@@ -185,9 +194,9 @@ class WebSocketActor(wsName: String) extends BaseActor with DataWriterClient {
       logger.info(s"Discarding unknown message $unexpected while in closing state")
   }
 
-  def disconnectedState(status: Int, reason: String, tx: WebSocketTx): Receive = {
+  def disconnectedState(status: Int, reason: String, tx: WsTx): Receive = {
 
-    case action: WebSocketAction =>
+    case action: WsAction =>
       // reconnect on first client message tentative
       val newTx = tx.copy(reconnectCount = tx.reconnectCount + 1)
       HttpEngine.instance.startWebSocketTransaction(newTx, self)
@@ -198,7 +207,7 @@ class WebSocketActor(wsName: String) extends BaseActor with DataWriterClient {
       logger.info(s"Discarding unknown message $unexpected while in disconnected state")
   }
 
-  def reconnectingState(status: Int, reason: String, pendingAction: WebSocketAction): Receive = {
+  def reconnectingState(status: Int, reason: String, pendingAction: WsAction): Receive = {
 
     case OnOpen(tx, webSocket, _) =>
       context.become(openState(webSocket, tx))
@@ -212,9 +221,9 @@ class WebSocketActor(wsName: String) extends BaseActor with DataWriterClient {
       logger.info(s"Discarding unknown message $unexpected while in reconnecting state")
   }
 
-  def crashedState(tx: WebSocketTx, error: String): Receive = {
+  def crashedState(tx: WsTx, error: String): Receive = {
 
-    case action: WebSocketAction =>
+    case action: WsAction =>
       import action._
       val now = nowMillis
       logRequest(session, requestName, KO, now, now, Some(error))

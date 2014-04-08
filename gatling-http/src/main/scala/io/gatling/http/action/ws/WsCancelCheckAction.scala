@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ * 		http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.gatling.http.check.ws
+package io.gatling.http.action.ws
 
-import io.gatling.core.check.{ CheckFactory, Preparer }
-import io.gatling.core.validation.SuccessWrapper
-import scala.concurrent.duration.FiniteDuration
+import io.gatling.core.session._
+import akka.actor.ActorRef
+import io.gatling.http.action.RequestAction
 
-object WebSocketCheckBuilders {
+class WsCancelCheckAction(val requestName: Expression[String], wsName: String, val next: ActorRef) extends RequestAction {
 
-  def checkFactory(timeout: FiniteDuration, expectation: Expectation, await: Boolean): CheckFactory[WebSocketCheck, String] =
-    wrapped => new WebSocketCheck(wrapped, timeout, expectation, await)
-
-  val passThroughMessagePreparer: Preparer[String, String] = (r: String) => r.success
+  def sendRequest(requestName: String, session: Session) =
+    for {
+      wsActor <- session(wsName).validate[ActorRef]
+    } yield wsActor ! CancelCheck(requestName, next, session)
 }
