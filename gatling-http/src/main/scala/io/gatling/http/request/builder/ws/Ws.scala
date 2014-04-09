@@ -1,6 +1,5 @@
 /**
  * Copyright 2011-2012 eBusiness Information, Groupe Excilys (www.excilys.com)
- * Copyright 2012 Gilt Groupe, Inc. (www.gilt.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +29,7 @@ object Ws {
  * @param requestName The name of this request
  * @param wsName The name of the session attribute used to store the websocket
  */
-class Ws(requestName: Expression[String], wsName: String = defaultWebSocketName) {
+class Ws(requestName: Expression[String], wsName: String = Ws.defaultWebSocketName) {
 
   def wsName(wsName: String) = new Ws(requestName, wsName)
 
@@ -47,14 +46,14 @@ class Ws(requestName: Expression[String], wsName: String = defaultWebSocketName)
    *
    * @param bytes The message
    */
-  def sendBinaryMessage(bytes: Expression[Array[Byte]]) = new WsSendActionBuilder(requestName, wsName, bytes.map(BinaryMessage))
+  def sendBinary(bytes: Expression[Array[Byte]]) = new WsSendActionBuilder(requestName, wsName, bytes.map(BinaryMessage))
 
   /**
    * Sends a text message on the given websocket.
    *
    * @param text The message
    */
-  def sendTextMessage(text: Expression[String]) = new WsSendActionBuilder(requestName, wsName, text.map(TextMessage))
+  def sendText(text: Expression[String]) = new WsSendActionBuilder(requestName, wsName, text.map(TextMessage))
 
   /**
    * Check for incoming messages on the given websocket.

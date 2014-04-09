@@ -40,6 +40,7 @@ import io.gatling.http.request.{ ExtraInfoExtractor, HttpRequest }
 import io.gatling.http.response.ResponseBuilderFactory
 import io.gatling.http.util.SSLHelper.{ RichAsyncHttpClientConfigBuilder, newKeyManagers, newTrustManagers }
 import io.gatling.http.check.ws.WsCheck
+import io.gatling.core.check.CheckResult
 
 case class HttpTx(session: Session,
                   request: Request,
@@ -65,6 +66,7 @@ case class WsTx(session: Session,
                        start: Long,
                        reconnectCount: Int = 0,
                        check: Option[WsCheck] = None,
+                       pendingCheckSuccesses: List[CheckResult] = Nil,
                        updates: List[Session => Session] = Nil) {
 
   def applyUpdates(session: Session) = {

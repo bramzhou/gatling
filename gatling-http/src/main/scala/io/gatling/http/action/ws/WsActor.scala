@@ -24,7 +24,9 @@ import io.gatling.core.result.writer.DataWriterClient
 import io.gatling.core.session.Session
 import io.gatling.core.util.TimeHelper.nowMillis
 import io.gatling.http.ahc.{HttpEngine, WsTx}
-import io.gatling.http.check.ws.WsCheck
+import io.gatling.http.check.ws.{ExpectedCount, WsCheck}
+import io.gatling.core.validation.Success
+import io.gatling.core.check.CheckResult
 
 class WsActor(wsName: String) extends BaseActor with DataWriterClient {
 
@@ -86,7 +88,7 @@ class WsActor(wsName: String) extends BaseActor with DataWriterClient {
         tx.check match {
           case Some(c) =>
             logRequest(tx.session, tx.requestName, KO, tx.start, nowMillis, Some(message))
-            tx.copy(updates = Session.MarkAsFailedUpdate :: tx.updates)
+            tx.copy(updates = Session.MarkAsFailedUpdate :: tx.updates, pendingCheckSuccesses = Nil)
 
           case _ => tx
         }
@@ -96,12 +98,12 @@ class WsActor(wsName: String) extends BaseActor with DataWriterClient {
 
         // schedule timeout
         scheduler.scheduleOnce(check.timeout) {
-          self ! ListenTimeout(check)
+          self ! CheckTimeout(check)
         }
 
         val newTx = failPendingCheck("Check didn't succeed by the time a new one was set up")
           .applyUpdates(session)
-          .copy(requestName = requestName, start = nowMillis, check = Some(check), next = next)
+          .copy(requestName = requestName, start = nowMillis, check = Some(check), pendingCheckSuccesses = Nil, next = next)
         context.become(openState(webSocket, newTx))
 
         if (!check.await)
@@ -140,12 +142,12 @@ class WsActor(wsName: String) extends BaseActor with DataWriterClient {
 
         val newTx = tx
           .applyUpdates(session)
-          .copy(check = None)
+          .copy(check = None, pendingCheckSuccesses = Nil)
 
         context.become(openState(webSocket, newTx))
         next ! newTx.session
 
-      case ListenTimeout(check) =>
+      case CheckTimeout(check) =>
         if (tx.check.exists(_ == check)) {
           // else ignore, this timeout is outdated
           val newTx = failPendingCheck("Check Timeout")
@@ -158,7 +160,61 @@ class WsActor(wsName: String) extends BaseActor with DataWriterClient {
       case OnMessage(message, time) =>
         logger.debug(s"Received message on websocket '$wsName':$message")
         tx.check.foreach { check =>
-          // TODO
+
+          check.check(message, tx.session) match {
+            case Success(result) =>
+              val results = result :: tx.pendingCheckSuccesses
+
+
+              check.expectation match {
+                case ExpectedCount(results.length) if !check.waitForTimeout =>
+                  // expected count met, let's stop the check
+                  logRequest(tx.session, tx.requestName, OK, tx.start, nowMillis, None)
+
+                  val captures = results.filter(_.hasUpdate)
+
+                  val updates = captures match {
+                    case Nil =>
+                      // nothing to save, no update
+                      tx.updates
+
+                    case checkResult :: Nil =>
+                      // FIXME beware of ranges
+                      // one single value to save
+                      checkResult.update _ :: tx.updates
+
+                    case _ =>
+                      // multiple values, let's pile them up
+                      val mergedCaptures = captures
+                        .collect { case CheckResult(Some(value), Some(saveAs)) => saveAs -> value}
+                        .groupBy(_._1)
+                        .mapValues(_.flatMap(_._2 match {
+                        case s: Seq[Any] => s
+                        case v => Seq(v)
+                      }))
+
+                      val newUpdate = (session: Session) => session.setAll(mergedCaptures)
+                      newUpdate :: tx.updates
+                  }
+
+                /*if (check.await) {
+                                         val newSession = tx.applyUpdates(tx.session).session.set(saveAs, value)
+                                         tx.next ! newSession
+                                         val newTx = tx.copy(session = newSession, updates = Nil, check = None, pendingCheckSuccesses = Nil)
+                                         context.become(openState(webSocket, newTx))
+
+                                       } else {
+
+                                       }*/
+
+                case _ =>
+                  // let's pile up
+                  val newTx = tx.copy(pendingCheckSuccesses = results)
+                  context.become(openState(webSocket, newTx))
+              }
+
+            case _ =>
+          }
         }
 
       case Reconciliate(requestName, next, session) =>

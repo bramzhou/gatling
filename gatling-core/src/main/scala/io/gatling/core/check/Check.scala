@@ -76,6 +76,8 @@ case class CheckBase[R, P, X](
 
 case class CheckResult(extractedValue: Option[Any], saveAs: Option[String]) {
 
+  def hasUpdate = extractedValue.isDefined && saveAs.isDefined
+
   def update(session: Session): Session =
     (for {
       v <- extractedValue

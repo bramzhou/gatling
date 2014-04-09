@@ -25,6 +25,6 @@ sealed trait Expectation
 case class ExpectedCount(value: Int) extends Expectation
 case class ExpectedRange(range: Range) extends Expectation
 
-case class WsCheck(wrapped: Check[String], timeout: FiniteDuration, expectation: Expectation, await: Boolean) extends Check[String] {
+case class WsCheck(wrapped: Check[String], await: Boolean, timeout: FiniteDuration, expectation: Expectation, waitForTimeout: Boolean) extends Check[String] {
   override def check(message: String, session: Session)(implicit cache: mutable.Map[Any, Any]): Validation[CheckResult] = wrapped.check(message, session)
 }

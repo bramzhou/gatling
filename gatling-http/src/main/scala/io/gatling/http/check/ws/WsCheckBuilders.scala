@@ -21,8 +21,8 @@ import scala.concurrent.duration.FiniteDuration
 
 object WsCheckBuilders {
 
-  def checkFactory(timeout: FiniteDuration, expectation: Expectation, await: Boolean): CheckFactory[WsCheck, String] =
-    wrapped => new WsCheck(wrapped, timeout, expectation, await)
+  def checkFactory(await: Boolean, timeout: FiniteDuration, expectation: Expectation, waitForTimeout: Boolean): CheckFactory[WsCheck, String] =
+    wrapped => new WsCheck(wrapped, await, timeout, expectation, waitForTimeout)
 
   val passThroughMessagePreparer: Preparer[String, String] = (r: String) => r.success
 }

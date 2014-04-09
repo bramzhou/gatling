@@ -28,7 +28,7 @@ case class OnOpen(tx: WsTx, webSocket: WebSocket, time: Long) extends WsEvent
 case class OnFailedOpen(tx: WsTx, message: String, time: Long) extends WsEvent
 case class OnMessage(message: String, time: Long) extends WsEvent
 case class OnClose(status: Int, reason: String, time: Long) extends WsEvent
-case class ListenTimeout(check: WsCheck) extends WsEvent
+case class CheckTimeout(check: WsCheck) extends WsEvent
 
 sealed trait WsAction extends WsEvent {
   def requestName: String
